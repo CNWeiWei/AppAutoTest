@@ -1,0 +1,25 @@
+{
+  "name": "appautotest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "appium": "cross-env APPIUM_HOME=. appium",
+    "install-uiautomator2": "appium driver install uiautomator2",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "appium": "^3.1.2"
+  },
+  "devDependencies": {
+    "appium-uiautomator2-driver": "^6.7.8",
+    "cross-env": "^10.1.0"
+  },
+  "volta": {
+    "node": "24.12.0",
+    "npm": "11.6.2"
+  }
+}
