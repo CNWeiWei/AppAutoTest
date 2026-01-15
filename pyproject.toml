@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "appium-python-client>=5.2.4",
+    "loguru>=0.7.3",
 ]
 
 [[tool.uv.index]]
