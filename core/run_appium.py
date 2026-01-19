@@ -10,6 +10,7 @@
 @desc: 
 """
 import functools
+import logging
 import signal
 import subprocess
 import time
@@ -18,16 +19,11 @@ import sys
 import http.client
 import socket
 import json
-from collections import namedtuple
-from pathlib import Path
 from enum import Enum
 
-# --- 核心配置 ---
-# 使用 pathlib 获取当前脚本所在的绝对路径
-BASE_DIR = Path(__file__).resolve().parent
+from core.settings import BASE_DIR, APPIUM_HOST, APPIUM_PORT
 
-APPIUM_HOST = "127.0.0.1"
-APPIUM_PORT = 4723
+logger = logging.getLogger(__name__)
 
 
 # 使用 npm run 确保 APPIUM_HOME=. 变量和本地版本生效
@@ -58,8 +54,8 @@ def get_appium_command():
 
     if not appium_bin.exists():
         # 报错提示：找不到本地 Appium，引导用户安装
-        print(f"\n❌ 错误: 在路径 {appium_bin} 未找到 Appium 执行文件。")
-        print("💡 请确保已在项目目录下执行过: npm install appium")
+        logger.info(f"\n错误: 在路径 {appium_bin} 未找到 Appium 执行文件。")
+        logger.info("请确保已在项目目录下执行过: npm install appium")
         sys.exit(1)
     # 返回执行列表（用于 shell=False）
     return [str(appium_bin), "-p", str(APPIUM_PORT)]
@@ -73,7 +69,7 @@ def _cleanup_process_tree(process: subprocess.Popen = None):
     """核心清理逻辑：针对方案一的跨平台递归关闭"""
     if not process or process.poll() is not None:
         return
-    print(f"\n🛑 正在关闭 Appium 进程树 (PID: {process.pid})...")
+    logger.info(f"正在关闭 Appium 进程树 (PID: {process.pid})...")
     try:
         if sys.platform == "win32":
             # Windows 下使用 taskkill 强制关闭进程树 /T
@@ -85,15 +81,15 @@ def _cleanup_process_tree(process: subprocess.Popen = None):
             os.killpg(pgid, signal.SIGTERM)
 
         process.wait(timeout=5)
-        print("✅ 所有相关进程已安全退出。")
+        logger.info("所有相关进程已安全退出。")
     except Exception as e:
-        print(f"⚠️ 关闭进程时遇到意外: {e}")
+        logger.error(f"关闭进程时遇到意外: {e}")
         try:
             process.kill()
         except Exception as e:
-            print(f"强制: {e}")
+            logger.warning(f"强制关闭: {e}")
             # 这里通常保持安静，因为我们已经尝试过清理了
-    print("✅ 服务已完全清理。")
+    logger.info("服务已完全清理。")
 
 
 class AppiumService:
@@ -107,12 +103,12 @@ class AppiumService:
         """统一停止接口：根据角色决定是否关闭进程"""
         match self.role:
             case ServiceRole.EXTERNAL:
-                print(f"--> [角色: {self.role.value}] 脚本退出，保留原服务运行。")
+                logger.info(f"--> [角色: {self.role.value}] 脚本退出，保留原服务运行。")
                 return
             case ServiceRole.MANAGED:
                 _cleanup_process_tree(self.process)
             case ServiceRole.NULL:
-                print(f"--> [角色: {self.role.value}] 无需清理。")
+                logger.info(f"--> [角色: {self.role.value}] 无需清理。")
 
     def __repr__(self):
         return f"<AppiumService 角色='{self.role.value}' 端口={APPIUM_PORT}>"
@@ -149,7 +145,7 @@ def get_appium_status() -> AppiumStatus:
     except (http.client.HTTPException, json.JSONDecodeError):
         return AppiumStatus.UNKNOWN
     except Exception as e:
-        print(e)
+        logger.error(e)
         return AppiumStatus.ERROR
     finally:
         if conn: conn.close()
@@ -169,28 +165,28 @@ def start_appium_service() -> AppiumService:
                 if managed:
                     # 安全打印 PID
                     pid_str = f"PID: {process.pid}" if process else "EXTERNAL"
-                    print(f"✨ Appium 已经完全就绪! ({pid_str})")
+                    logger.info(f"Appium 已经完全就绪! ({pid_str})")
                     return AppiumService(ServiceRole.MANAGED, process)
                 else:
-                    print(f"--> [复用] 有效的 Appium 服务已在运行 (Port: {APPIUM_PORT})")
-                    print("      [注意] 脚本退出时将保留该服务，不会将其关闭。")
+                    logger.info(f"--> [复用] 有效的 Appium 服务已在运行 (Port: {APPIUM_PORT})")
+                    logger.info("--> [注意] 脚本退出时将保留该服务，不会将其关闭。")
                     return AppiumService(ServiceRole.EXTERNAL, process)
             case AppiumStatus.CONFLICT:
-                print(f"\n[!] 错误: 端口 {APPIUM_PORT} 被非 Appium 程序占用。")
-                print("=" * 60)
-                print("请手动执行以下命令释放端口后重试：")
+                logger.warning(f"\n[!] 错误: 端口 {APPIUM_PORT} 被非 Appium 程序占用。")
+                logger.info("=" * 60)
+                logger.info("请手动执行以下命令释放端口后重试：")
                 if sys.platform == "win32":
-                    print(
+                    logger.info(
                         f"  CMD: for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :{APPIUM_PORT}') do taskkill /F /PID %a")
                 else:
-                    print(f"  Terminal: lsof -ti:{APPIUM_PORT} | xargs kill -9")
-                print("=" * 60)
+                    logger.info(f"  Terminal: lsof -ti:{APPIUM_PORT} | xargs kill -9")
+                logger.info("=" * 60)
                 sys.exit(1)
             case AppiumStatus.OFFLINE:
 
                 if not managed:
-                    print("🔌 Appium 未启动")
-                    print(f"🚀 正在准备启动本地 Appium 服务 (Port: {APPIUM_PORT})...")
+                    logger.info("Appium 服务未启动...")
+                    logger.info(f"正在准备启动本地 Appium 服务 (Port: {APPIUM_PORT})...")
 
                     # 注入环境变量，确保 Appium 寻找项目本地的驱动
                     env_vars = os.environ.copy()
@@ -209,31 +205,31 @@ def start_appium_service() -> AppiumService:
                         )
                         managed = True
                     except Exception as e:
-                        print(f"❌ 启动过程发生异常: {e}")
+                        logger.error(f"启动过程发生异常: {e}")
                         sys.exit(1)
                 else:
                     if process and process.poll() is not None:
-                        print("❌ Appium 进程启动后异常退出。")
+                        logger.warning("Appium 进程启动后异常退出。")
                         sys.exit(1)
             case AppiumStatus.INITIALIZING:
                 if managed and process and process.poll() is not None:
-                    print("❌ Appium 驱动加载期间进程崩溃。")
+                    logger.warning("Appium 驱动加载期间进程崩溃。")
                     _cleanup_process_tree(process)
                     sys.exit(1)
                 if i % 4 == 0:  # 每 2 秒提醒一次，避免刷屏
-                    print("⏳ Appium 正在加载驱动/插件，请稍候...")
+                    logger.info("Appium 正在加载驱动/插件，请稍候...")
             case AppiumStatus.ERROR:
-                print("❌ 探测接口发生内部错误（可能是解析失败或严重网络异常），脚本终止。")
+                logger.error("探测接口发生内部错误（可能是解析失败或严重网络异常），脚本终止。")
                 if managed and process:
                     _cleanup_process_tree(process)
                 sys.exit(1)
             case _:
-                print("Appium 启动异常")
+                logger.error("Appium 启动异常")
                 sys.exit(1)
 
         time.sleep(0.5)
 
-    print("❌ 启动超时：Appium 在规定时间内未完成初始化。")
+    logger.warning("启动超时：Appium 在规定时间内未完成初始化。")
     _cleanup_process_tree(process)
     sys.exit(1)
 
@@ -242,15 +238,18 @@ def stop_appium_service(server: AppiumService):
     # """安全关闭服务"""
     server.stop()
 
+
 # --- 装饰器实现 ---
 def with_appium(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         service = start_appium_service()
         try:
-            return func(service, *args, **kwargs)
+            # return func(service, *args, **kwargs)
+            return func(*args, **kwargs)
         finally:
             service.stop()
+
     return wrapper
 
 

@@ -1,42 +1,38 @@
-import time
+import os
+import shutil
+import datetime
+from pathlib import Path
 
-from appium import webdriver
-from appium.options.android import UiAutomator2Options
+import pytest
 
-from run_appium import start_appium_service, stop_appium_service, with_appium
+from core.settings import LOG_SOURCE, LOG_BACKUP_DIR, ALLURE_TEMP, REPORT_DIR
+# 日志自动清理
+def _clean_old_logs(backup_dir, keep_count=10):
+    files = sorted(Path(backup_dir).glob("pytest_*.log"), key=os.path.getmtime)
+    while len(files) > keep_count:
+        os.remove(files.pop(0))
 
 
-@with_appium
-def main(service):
-    print(f"正在测试，服务模式: {service.role}")
-    # 简单操作示例
-    driver = None
+def main():
     try:
-        # 在自动化套件启动前执行
-        # proc = start_appium_service()
+        # 2. 执行 Pytest
+        # 建议保留你之前配置的 -s -v 等参数
+        exit_code = pytest.main(["test_cases", "-x", "-v", f"--alluredir={ALLURE_TEMP}"])
 
-        # 配置Android设备参数
-        capabilities = dict(
-            platformName='Android',
-            automationName='uiautomator2',
-            deviceName='Android',
-            appPackage='com.android.settings',
-            appActivity='.Settings'
-        )
+        # 3. 生成报告
+        if ALLURE_TEMP.exists():
+            os.system(f'allure generate {ALLURE_TEMP} -o {REPORT_DIR} --clean')
 
-        # 转换capabilities为Appium Options
-        options = UiAutomator2Options().load_capabilities(capabilities)
-
-        # 连接Appium服务器
-        # driver = webdriver.Remote('http://localhost:4723', options=options)
-        driver = webdriver.Remote('http://127.0.0.1:4723', options=options)
-        time.sleep(1)
-        print("当前Activity:", driver.current_activity)
     finally:
-        driver.quit()
-        # 在自动化套件结束后执行
-        # stop_appium_service(proc)
-    print("Hello from AppAutoTest!")
+        # 4. 备份日志 (无论测试是否崩溃都执行)
+        if LOG_SOURCE.exists():
+            now = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_path = LOG_BACKUP_DIR / f"pytest_{now}.log"
+            shutil.copy2(LOG_SOURCE, backup_path)
+            print(f"日志已备份至: {backup_path}")
+            _clean_old_logs(LOG_BACKUP_DIR)
+        else:
+            print("未找到原始日志文件，跳过备份。")
 
 
 if __name__ == "__main__":

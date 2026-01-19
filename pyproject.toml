@@ -1,12 +1,14 @@
 [project]
 name = "appautotest"
 version = "0.1.0"
-description = "Add your description here"
+description = "App自动化测试框架"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "allure-pytest==2.13.5",
     "appium-python-client>=5.2.4",
     "loguru>=0.7.3",
+    "pytest>=8.3.5",
 ]
 
 [[tool.uv.index]]

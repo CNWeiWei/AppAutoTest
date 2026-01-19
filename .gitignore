@@ -5,10 +5,26 @@ build/
 dist/
 wheels/
 *.egg-info
-
-# Virtual environments
-.venv
-node_modules
-
 .idea
+
+# --- 依赖与环境 ---
+.venv
+venv/
+node_modules/
 uv.lock
+# --- 屏蔽outputs ---
+outputs/logs/*.log
+outputs/logs/backups/*
+outputs/screenshots/
+
+# --- Allure 报告 ---
+temp/
+report/
+.allure/
+
+# --- pytest缓存 ---
+.pytest_cache/
+.allure_cache/
+
+# --- 配置文件 ---
+.env
