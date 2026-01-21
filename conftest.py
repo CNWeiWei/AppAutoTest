@@ -13,7 +13,7 @@ import logging
 
 import pytest
 from core.run_appium import start_appium_service, stop_appium_service
-from core.driver import AppDriver
+from core.driver import CoreDriver
 
 
 @pytest.fixture(scope="session")
@@ -36,7 +36,7 @@ def driver(app_server):
     依赖 app_server，确保服务 Ready 后才创建连接。
     """
     # 实例化你提供的类结构
-    app_helper = AppDriver()
+    app_helper = CoreDriver()
 
     # 配置Android设备参数
     capabilities = dict(

@@ -19,7 +19,12 @@ from appium.options.ios import XCUITestOptions
 from appium.options.common.base import AppiumOptions
 from appium.webdriver.webdriver import ExtensionBase
 from appium.webdriver.client_config import AppiumClientConfig
+from appium.webdriver.common.appiumby import AppiumBy
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+from utils.finder import by_converter
 
 logger = logging.getLogger(__name__)
 
@@ -28,21 +33,22 @@ class AppPlatform(Enum):
     IOS = "ios"
 
 
-class AppDriver:
+
+class CoreDriver:
     def __init__(self):
         self.driver: Optional[webdriver.Remote] = None
         self._host = "127.0.0.1"
         self._port = 4723
 
-    def server_config(self):
+    def server_config(self, host: str = "127.0.0.1", port: int = 4723):
         """配置服务端信息"""
-        # self._host = host
-        # self._port = port
+        self._host = host
+        self._port = port
         logger.info(f"Appium Server 指向 -> {self._host}:{self._port}")
 
     def connect(self, platform: str | AppPlatform, caps: dict,
                 extensions: list[Type[ExtensionBase]] | None = None,
-                client_config: AppiumClientConfig | None = None) -> 'AppDriver':
+                client_config: AppiumClientConfig | None = None) -> 'CoreDriver':
         """
         参照 KeyWordDriver 逻辑，但强化了配置校验和异常处理
         """
@@ -89,18 +95,53 @@ class AppDriver:
             self.driver = None
             raise ConnectionError(f"无法连接到 Appium 服务，请检查端口 {self._port} 或设备状态。") from e
 
-    # --- 开始封装操作方法 ---
-    def click(self, locator: tuple):
-        """封装点击，locator 格式如 (AppiumBy.ID, "xxx")"""
-        logger.info(f"点击元素: {locator}")
-        self.driver.find_element(*locator).click()
 
-    def input(self, locator: tuple, text: str):
-        """封装输入"""
-        logger.info(f"对元素 {locator} 输入内容: {text}")
-        el = self.driver.find_element(*locator)
+    # --- 核心操作 ---
+    def find(self, by, value, timeout=10):
+        """内部通用查找（显式等待）"""
+        by = by_converter(by)
+        target = (by, value)
+        # self.driver.find_element()
+        return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(target))
+
+    def click(self, by, value, timeout=10) -> 'CoreDriver':
+        target = (by_converter(by), value)
+        logger.info(f"点击: {target}")
+        WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable(target)).click()
+        return self
+
+    def input(self, by, value, text, timeout=10) -> 'CoreDriver':
+        target = (by_converter(by), value)
+        logger.info(f"输入 '{text}' 到: {target}")
+        el = WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(target))
         el.clear()
         el.send_keys(text)
+        return self
+
+    # --- 移动端特有：方向滑动 ---
+    def swipe_to(self, direction: str = "up", duration: int = 800) -> 'CoreDriver':
+        """封装方向滑动，无需计算具体坐标"""
+        if not self._size:
+            self._size = self.driver.get_window_size()
+
+        w, h = self._size['width'], self._size['height']
+        # 这里的 0.8/0.2 比例是为了避开刘海屏和虚拟按键，提高滑动成功率
+        coords = {
+            "up": (w * 0.5, h * 0.8, w * 0.5, h * 0.2),
+            "down": (w * 0.5, h * 0.2, w * 0.5, h * 0.8),
+            "left": (w * 0.9, h * 0.5, w * 0.1, h * 0.5),
+            "right": (w * 0.1, h * 0.5, w * 0.9, h * 0.5)
+        }
+        start_x, start_y, end_x, end_y = coords.get(direction.lower(), coords["up"])
+        self.driver.swipe(start_x, start_y, end_x, end_y, duration)
+        return self
+
+    # --- 断言逻辑 ---
+    def assert_text(self, by, value, expected_text) -> 'CoreDriver':
+        actual = self.find(by, value).text
+        assert actual == expected_text, f"断言失败: 期望 {expected_text}, 实际 {actual}"
+        logger.info(f"断言通过: 文本匹配 '{actual}'")
+        return self
 
 
 
