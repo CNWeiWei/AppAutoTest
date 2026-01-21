@@ -31,10 +31,9 @@ for folder in [LOG_DIR, LOG_BACKUP_DIR, ALLURE_TEMP]:
 LOG_SOURCE = LOG_DIR / "pytest.log"
 
 # --- 业务常量 (可选) ---
-IMPLICIT_WAIT = 10
+IMPLICIT_WAIT_TIMEOUT = 10
+EXPLICIT_WAIT_TIMEOUT = 10
 APPIUM_SERVER = "http://127.0.0.1:4723"
 # --- 核心配置 ---
 APPIUM_HOST = "127.0.0.1"
 APPIUM_PORT = 4723
-
-

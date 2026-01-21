@@ -11,7 +11,8 @@
 """
 import logging
 from enum import Enum
-from typing import Optional, Type
+from typing import Optional, Type, TypeVar
+from time import sleep
 
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
@@ -20,18 +21,26 @@ from appium.options.common.base import AppiumOptions
 from appium.webdriver.webdriver import ExtensionBase
 from appium.webdriver.client_config import AppiumClientConfig
 from appium.webdriver.common.appiumby import AppiumBy
+from selenium.webdriver.common.bidi.cdp import session_context
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions import interaction
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
 
 from utils.finder import by_converter
+from settings import IMPLICIT_WAIT_TIMEOUT, EXPLICIT_WAIT_TIMEOUT
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
 
 class AppPlatform(Enum):
     ANDROID = "android"
     IOS = "ios"
-
 
 
 class CoreDriver:
@@ -95,55 +104,143 @@ class CoreDriver:
             self.driver = None
             raise ConnectionError(f"无法连接到 Appium 服务，请检查端口 {self._port} 或设备状态。") from e
 
-
     # --- 核心操作 ---
-    def find(self, by, value, timeout=10):
+    def find_element(self, by, value, timeout=10):
         """内部通用查找（显式等待）"""
         by = by_converter(by)
-        target = (by, value)
-        # self.driver.find_element()
-        return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(target))
+        mark = (by, value)
+
+        return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(mark))
+
+    def delay(self, timeout: int | float):
+        sleep(timeout)
+        return self
+
+    def implicit_wait(self, timeout: float = IMPLICIT_WAIT_TIMEOUT, *args, **kwargs) -> None:
+        """
+        隐式等待
+        :param timeout: 超时时间
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        self.driver.implicitly_wait(timeout)
+
+    def explicit_wait(self, method: T, timeout: float = EXPLICIT_WAIT_TIMEOUT, *args, **kwargs):
+        """
+        显示等待
+        :param method: 可调用对象名
+        :param timeout: 超时时间
+        :param args:
+        :param kwargs:
+        :return:
+        """
+
+        try:
+            if isinstance(method, str):
+                # method = custom_ec.get(method, (lambda _: False))
+                method = lambda _: False
+
+            logger.info(f"预期条件: {method.__name__}")
+
+            return WebDriverWait(self.driver, timeout).until(method)
+        except TypeError as te:
+            logger.error(f"显示等待异常: {te}")
+            # self.driver.quit()
+            raise te
+
+    def page_load_timeout(self, timeout: float, *args, **kwargs) -> None:
+        self.driver.set_page_load_timeout(timeout)
 
     def click(self, by, value, timeout=10) -> 'CoreDriver':
-        target = (by_converter(by), value)
-        logger.info(f"点击: {target}")
-        WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable(target)).click()
+        by = by_converter(by)
+        mark = (by, value)
+        logger.info(f"点击: {mark}")
+        method = EC.element_to_be_clickable(mark)
+        self.explicit_wait(method, timeout).click()
         return self
+
+    def clear(self, by, value, *args, **kwargs):
+
+        by = by_converter(by)
+        mark = (by, value)
+        method = EC.visibility_of_element_located(mark)
+
+        self.explicit_wait(method).clear()
+
+        # self.driver.find_element(by, value).clear()
 
     def input(self, by, value, text, timeout=10) -> 'CoreDriver':
-        target = (by_converter(by), value)
-        logger.info(f"输入 '{text}' 到: {target}")
-        el = WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(target))
-        el.clear()
-        el.send_keys(text)
+        by = by_converter(by)
+        mark = (by, value)
+        method = EC.visibility_of_element_located(mark)
+
+        self.explicit_wait(method, timeout).send_keys(text)
         return self
 
-    # --- 移动端特有：方向滑动 ---
-    def swipe_to(self, direction: str = "up", duration: int = 800) -> 'CoreDriver':
-        """封装方向滑动，无需计算具体坐标"""
-        if not self._size:
-            self._size = self.driver.get_window_size()
+    def get_text(self, by, value, *args, **kwargs):
+        """
+        获取元素文本
+        :param by:
+        :param value:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        by = by_converter(by)
+        mark = (by, value)
+        method = EC.visibility_of_element_located(mark)
 
-        w, h = self._size['width'], self._size['height']
-        # 这里的 0.8/0.2 比例是为了避开刘海屏和虚拟按键，提高滑动成功率
+        text = self.explicit_wait(method).text
+        logger.info(f"获取到的文本{text}")
+        return text
+
+    def get_session_id(self):
+
+        return self.driver.session_id
+
+    # --- 移动端特有：方向滑动 ---
+    def swipe_to(self, direction: str = "up", duration: int = 1000) -> 'CoreDriver':
+        """
+        封装方向滑动 (W3C Actions 兼容版)
+        :param direction: 滑动方向 up/down/left/right
+        :param duration: 滑动持续时间 (ms)
+        :return: self
+        """
+        # 每次获取屏幕尺寸以适应旋转
+        size = self.driver.get_window_size()
+        w, h = size['width'], size['height']
+
+        # 定义滑动坐标 (避开边缘区域)
         coords = {
-            "up": (w * 0.5, h * 0.8, w * 0.5, h * 0.2),
-            "down": (w * 0.5, h * 0.2, w * 0.5, h * 0.8),
-            "left": (w * 0.9, h * 0.5, w * 0.1, h * 0.5),
+            "up":    (w * 0.5, h * 0.8, w * 0.5, h * 0.2),
+            "down":  (w * 0.5, h * 0.2, w * 0.5, h * 0.8),
+            "left":  (w * 0.9, h * 0.5, w * 0.1, h * 0.5),
             "right": (w * 0.1, h * 0.5, w * 0.9, h * 0.5)
         }
         start_x, start_y, end_x, end_y = coords.get(direction.lower(), coords["up"])
-        self.driver.swipe(start_x, start_y, end_x, end_y, duration)
+        logger.info(f"执行滑动: {direction} ({start_x}, {start_y}) -> ({end_x}, {end_y})")
+
+        # 使用 W3C ActionChains 替代已废弃的 driver.swipe
+        actions = ActionChains(self.driver)
+        # 覆盖默认的鼠标输入为触摸输入
+        actions.w3c_actions = ActionBuilder(self.driver, mouse=PointerInput(interaction.POINTER_TOUCH, "touch"))
+        
+        actions.w3c_actions.pointer_action.move_to_location(start_x, start_y)
+        actions.w3c_actions.pointer_action.pointer_down()
+        actions.w3c_actions.pointer_action.pause(duration / 1000)  # pause 单位为秒
+        actions.w3c_actions.pointer_action.move_to_location(end_x, end_y)
+        actions.w3c_actions.pointer_action.release()
+        actions.perform()
+
         return self
 
     # --- 断言逻辑 ---
     def assert_text(self, by, value, expected_text) -> 'CoreDriver':
-        actual = self.find(by, value).text
+        actual = self.get_text(by, value)
         assert actual == expected_text, f"断言失败: 期望 {expected_text}, 实际 {actual}"
         logger.info(f"断言通过: 文本匹配 '{actual}'")
         return self
-
-
 
     def quit(self):
         """安全退出"""
