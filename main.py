@@ -8,7 +8,8 @@ import pytest
 
 from core.settings import LOG_SOURCE, LOG_BACKUP_DIR, ALLURE_TEMP, REPORT_DIR
 
-
+# netstat -ano | findstr :4723
+# taskkill /PID 12345 /F
 # 日志自动清理
 def _clean_old_logs(backup_dir, keep_count=10):
     files = sorted(Path(backup_dir).glob("pytest_*.log"), key=os.path.getmtime)

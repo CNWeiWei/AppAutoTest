@@ -12,6 +12,11 @@
 
 from enum import Enum
 
+class AppPlatform(Enum):
+    ANDROID = "android"
+    IOS = "ios"
+
+
 class Locator(str, Enum):
     # --- 原有 Selenium 支持 ---
     ID = "id"
