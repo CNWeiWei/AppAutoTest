@@ -14,6 +14,7 @@ import logging
 import pytest
 from core.run_appium import start_appium_service, stop_appium_service
 from core.driver import CoreDriver
+from core.settings import ANDROID_CAPS
 
 
 @pytest.fixture(scope="session")
@@ -38,17 +39,9 @@ def driver(app_server):
     # 实例化你提供的类结构
     app_helper = CoreDriver()
 
-    # 配置Android设备参数
-    capabilities = dict(
-        platformName='Android',
-        automationName='uiautomator2',
-        deviceName='Android',
-        appPackage='com.android.settings',
-        appActivity='.Settings'
-    )
-
     # 连接并获取原生 driver 实例
-    app_helper.connect(platform="android", caps=capabilities)
+    # 这里可以根据需要扩展，比如通过命令行参数选择平台
+    app_helper.connect(platform="android", caps=ANDROID_CAPS)
 
     yield app_helper
 

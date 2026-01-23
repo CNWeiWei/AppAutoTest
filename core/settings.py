@@ -38,3 +38,12 @@ APPIUM_SERVER = "http://127.0.0.1:4723"
 # --- 核心配置 ---
 APPIUM_HOST = "127.0.0.1"
 APPIUM_PORT = 4723
+
+# --- 设备能力配置 (Capabilities) ---
+ANDROID_CAPS = {
+    "platformName": "Android",
+    "automationName": "uiautomator2",
+    "deviceName": "Android",
+    "appPackage": "com.android.settings",
+    "appActivity": ".Settings",
+}

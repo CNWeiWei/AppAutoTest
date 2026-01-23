@@ -4,7 +4,7 @@
 """
 @author: CNWei,ChenWei
 @Software: PyCharm
-@contact: t6g888@163.com,chenwei@zygj.com
+@contact: t6g888@163.com
 @file: driver
 @date: 2026/1/16 10:49
 @desc: Appium 核心驱动封装，提供统一的 API 用于 Appium 会话管理和元素操作。
@@ -113,7 +113,7 @@ class CoreDriver:
             raise ConnectionError(f"无法连接到 Appium 服务，请检查端口 {self._port} 或设备状态。") from e
 
     # --- 核心操作 ---
-    def find_element(self, by, value, timeout: Optional[float] = None) -> WebElement:
+    def find_element(self, by: str, value: str, timeout: Optional[float] = None) -> WebElement:
         """
         内部通用查找（显式等待）
         :param by: 定位策略
@@ -123,8 +123,21 @@ class CoreDriver:
         """
         by = by_converter(by)
         mark = (by, value)
-        wait_timeout = timeout if timeout is not None else EXPLICIT_WAIT_TIMEOUT
-        return WebDriverWait(self.driver, wait_timeout).until(EC.presence_of_element_located(mark))
+        method = EC.presence_of_element_located(mark)
+        return self.explicit_wait(method, timeout)
+
+    def find_elements(self, by: str, value: str, timeout: Optional[float] = None) -> list[WebElement]:
+        """
+        内部通用查找（显式等待）
+        :param by: 定位策略
+        :param value: 定位值
+        :param timeout: 等待超时时间 (秒)。如果为 None, 则使用全局默认超时.
+        :return: list[WebElement].
+        """
+        by = by_converter(by)
+        mark = (by, value)
+        method = EC.presence_of_all_elements_located(mark)
+        return self.explicit_wait(method, timeout)
 
     def delay(self, timeout: int | float) -> 'CoreDriver':
         """
@@ -151,6 +164,19 @@ class CoreDriver:
             Union[T, WebElement]:
         """
         执行显式等待，直到满足某个条件或超时。
+
+        使用示例:
+        1. 使用原生 Selenium EC:
+           driver.explicit_wait(EC.presence_of_element_located((By.ID, "el_id")))
+
+        2. 使用自定义字符串别名 (支持参数传递):
+           # 检查 Toast 消息
+           driver.explicit_wait("toast_visible:登录成功")
+           # 检查元素属性 (格式: key:by,value,attr,expect)
+           driver.explicit_wait("attr_contains:id,btn_submit,checked,true")
+           # 检查元素数量
+           driver.explicit_wait("count_at_least:xpath,//android.widget.TextView,3")
+
         :param method: EC等待条件(Callable) 或 自定义等待条件的名称(str)
         :param timeout: 超时时间 (秒)。如果为 None, 则使用全局默认超时.
         :return: 等待条件的执行结果 (通常是 WebElement 或 bool)
@@ -162,6 +188,9 @@ class CoreDriver:
             func_name = getattr(method, '__name__', repr(method))
             logger.info(f"执行显式等待: {func_name}, 超时: {wait_timeout}s")
             return WebDriverWait(self.driver, wait_timeout).until(method)
+        except TimeoutException:
+            logger.error(f"等待超时: {wait_timeout}s 内未满足条件 {method}")
+            raise
         except TypeError as te:
             logger.error(f"显示等待异常: {te}")
             # self.driver.quit()
@@ -175,7 +204,7 @@ class CoreDriver:
         wait_timeout = timeout if timeout is not None else EXPLICIT_WAIT_TIMEOUT
         self.driver.set_page_load_timeout(wait_timeout)
 
-    def click(self, by, value, timeout: Optional[float] = None) -> 'CoreDriver':
+    def click(self, by: str, value: str, timeout: Optional[float] = None) -> 'CoreDriver':
         """
         查找元素并执行点击操作。
         内置显式等待，确保元素可点击。
@@ -191,7 +220,7 @@ class CoreDriver:
         self.explicit_wait(method, timeout).click()
         return self
 
-    def clear(self, by, value, timeout: Optional[float] = None) -> 'CoreDriver':
+    def clear(self, by: str, value: str, timeout: Optional[float] = None) -> 'CoreDriver':
         """
         查找元素并清空其内容。
         内置显式等待，确保元素可见。
@@ -207,19 +236,22 @@ class CoreDriver:
         self.explicit_wait(method, timeout).clear()
         return self
 
-    def input(self, by, value, text, timeout: Optional[float] = None) -> 'CoreDriver':
+    def input(self, by: str, value: str, text: str, sensitive: bool = False,
+              timeout: Optional[float] = None) -> 'CoreDriver':
         """
         查找元素并输入文本。
         内置显式等待，确保元素可见。
         :param by: 定位策略。
         :param value: 定位值。
         :param text: 要输入的文本。
+        :param sensitive: 是否为敏感信息（如密码），如果是，日志中将掩码显示。
         :param timeout: 等待超时时间。
         :return: self
         """
         by = by_converter(by)
         mark = (by, value)
-        logger.info(f"输入文本到 {mark}: '{text}'")
+        display_text = "******" if sensitive else text
+        logger.info(f"输入文本到 {mark}: '{display_text}'")
         method = EC.visibility_of_element_located(mark)
         self.explicit_wait(method, timeout).send_keys(text)
         return self
@@ -241,7 +273,7 @@ class CoreDriver:
         except TimeoutException:
             return False
 
-    def get_text(self, by, value, timeout: Optional[float] = None) -> str:
+    def get_text(self, by: str, value: str, timeout: Optional[float] = None) -> str:
         """
         获取元素文本
         :param by: 定位策略。
@@ -256,6 +288,22 @@ class CoreDriver:
         text = self.explicit_wait(method, timeout).text
         logger.info(f"获取到的文本{text}")
         return text
+
+    def get_attribute(self, by: str, value: str, name: str, timeout: Optional[float] = None) -> str:
+        """
+        获取元素属性
+        :param by: 定位策略。
+        :param value: 定位值。
+        :param timeout: 等待超时时间。
+        :param name: 属性名称 (如 'checked', 'enabled', 'resource-id')
+        """
+        by = by_converter(by)
+        mark = (by, value)
+        method = EC.presence_of_element_located(mark)
+        element = self.explicit_wait(method, timeout)
+        attr_value = element.get_attribute(name)
+        logger.info(f"获取属性 {name} of {mark}: {attr_value}")
+        return attr_value
 
     @property
     def session_id(self):
@@ -363,7 +411,7 @@ class CoreDriver:
 
         return self
 
-    def swipe_by_percent(self, start_xp, start_yp, end_xp, end_yp, duration: int = 1000) -> 'CoreDriver':
+    def swipe_by_percent(self, start_xp:int, start_yp:int, end_xp:int, end_yp:int, duration: int = 1000) -> 'CoreDriver':
         """
         按屏幕比例滑动 (0.5 = 50%)
         """
@@ -384,7 +432,7 @@ class CoreDriver:
         return self.driver is not None and self.driver.session_id is not None
 
     # --- 断言逻辑 ---
-    def assert_text(self, by, value, expected_text, timeout: Optional[float] = None) -> 'CoreDriver':
+    def assert_text(self, by:str, value:str, expected_text:str, timeout: Optional[float] = None) -> 'CoreDriver':
         """
         断言元素的文本内容是否符合预期。
         :param by: 定位策略。

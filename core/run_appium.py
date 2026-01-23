@@ -61,9 +61,8 @@ def get_appium_command():
     return [str(appium_bin), "-p", str(APPIUM_PORT)]
 
 
-# 在全局或 start_appium_service 中获取命令
-APP_CMD_LIST = get_appium_command()
-
+# 移除全局调用，防止 import 时因找不到 appium 而直接退出
+# APP_CMD_LIST = get_appium_command()
 
 def _cleanup_process_tree(process: subprocess.Popen = None):
     """核心清理逻辑：针对方案一的跨平台递归关闭"""
@@ -156,6 +155,9 @@ def start_appium_service() -> AppiumService:
     process = None  # 1. 预先初始化变量，防止作用域错误
     managed = False
     # 轮询等待真正就绪
+    
+    # 延迟获取命令，确保只在真正需要启动服务时检查环境
+    app_cmd_list = get_appium_command()
     max_retries = 40
 
     for i in range(max_retries):
@@ -194,7 +196,7 @@ def start_appium_service() -> AppiumService:
 
                     try:
                         process = subprocess.Popen(
-                            APP_CMD_LIST,
+                            app_cmd_list,
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,
                             env=env_vars,
