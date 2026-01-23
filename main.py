@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+# coding=utf-8
+
+"""
+@author: CNWei,ChenWei
+@Software: PyCharm
+@contact: t6g888@163.com
+@file: main
+@date: 2026/1/13 16:54
+@desc:
+"""
 import os
 import shutil
 import subprocess

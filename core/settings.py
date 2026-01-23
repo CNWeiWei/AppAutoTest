@@ -4,7 +4,7 @@
 """
 @author: CNWei,ChenWei
 @Software: PyCharm
-@contact: t6g888@163.com,chenwei@zygj.com
+@contact: t6g888@163.com
 @file: settings
 @date: 2026/1/19 16:54
 @desc: 
