@@ -142,14 +142,22 @@ if __name__ == '__main__':
     # 5. 查看当前全量支持的归一化后的 Key
     print(f"当前支持的策略总数: {len(converter.get_all_finders())}")
     print(f"前 5 个策略示例: {converter.get_all_finders()[:5]}")
+    
     # 6. 增加类型非法测试
     print("\n--- 异常类型测试 ---")
     try:
         by_converter(123)  # 传入数字
-    except TypeError as e:
+    except ValueError as e:
         print(f"验证类型拦截成功: {e}")
 
     try:
         by_converter(None) # 传入 None
-    except TypeError as e:
+    except ValueError as e:
         print(f"验证空值拦截成功: {e}")
+
+    # 7. 验证不支持的策略 (验证 if target is None 分支)
+    print("\n--- 验证不支持的策略 ---")
+    try:
+        by_converter("unknown_strategy")
+    except ValueError as e:
+        print(f"验证不支持策略拦截成功: {e}")

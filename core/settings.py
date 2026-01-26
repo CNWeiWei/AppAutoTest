@@ -16,7 +16,7 @@ from pathlib import Path
 # 项目根目录 (core 的上一级)
 # BASE_DIR = Path(__file__).parent.parent
 BASE_DIR = Path(__file__).resolve().parents[1]  # 获取根路径（绝对路径）
-print(BASE_DIR)
+# print(BASE_DIR)
 # --- 目录配置 ---
 OUTPUT_DIR = BASE_DIR / "outputs"
 LOG_DIR = OUTPUT_DIR / "logs"

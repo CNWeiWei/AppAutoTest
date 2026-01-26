@@ -177,8 +177,10 @@ if __name__ == "__main__":
     cond1 = get_condition("toast_visible", "保存成功")
     print(cond1)
     # 调用闭包生成的条件
-    cond2 = get_condition("is_element_present", (By.ID, "submit"))
-    print(cond2)
+    # cond2 = get_condition("is_element_present", (By.ID, "submit"))
+    # print(cond2)
     cond3 = get_condition(EC.presence_of_element_located, (By.ID, "submit"))
     print(cond3)
+    cond4 = get_condition("system_ready", (By.ID, "submit"))
+    print(cond4)
     # WebDriverWait(driver, 10).until(cond1)
