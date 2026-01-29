@@ -10,6 +10,7 @@
 @desc: Appium 核心驱动封装，提供统一的 API 用于 Appium 会话管理和元素操作。
 """
 import logging
+import secrets  # 原生库，用于生成安全的随机数
 from typing import Optional, Type, TypeVar, Union, Callable
 from time import sleep
 
@@ -21,7 +22,7 @@ from appium.webdriver.webdriver import ExtensionBase
 from appium.webdriver.webelement import WebElement
 from appium.webdriver.client_config import AppiumClientConfig
 
-from selenium.common import TimeoutException
+from selenium.common import TimeoutException, StaleElementReferenceException, NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
@@ -32,7 +33,7 @@ from selenium.webdriver.common.actions.pointer_input import PointerInput
 from utils.finder import by_converter
 from utils.decorators import resolve_wait_method
 from core.modules import AppPlatform
-from core.settings import IMPLICIT_WAIT_TIMEOUT, EXPLICIT_WAIT_TIMEOUT, APPIUM_HOST, APPIUM_PORT
+from core.settings import IMPLICIT_WAIT_TIMEOUT, EXPLICIT_WAIT_TIMEOUT, APPIUM_HOST, APPIUM_PORT, SCREENSHOT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -40,20 +41,57 @@ T = TypeVar("T")
 
 
 class CoreDriver:
-    def __init__(self):
+    def __init__(self, driver: Optional[webdriver.Remote] = None):
         """
         初始化 CoreDriver 实例。
         从 settings.py 加载默认的 Appium 服务器主机和端口。
         """
-        self.driver: Optional[webdriver.Remote] = None
+        self.driver = driver
+        self._current_implicit_timeout = IMPLICIT_WAIT_TIMEOUT
         self._host = APPIUM_HOST
         self._port = APPIUM_PORT
 
-    def server_config(self, host: str = APPIUM_HOST, port: int = APPIUM_PORT):
+    @property
+    def server_url(self) -> str:
+        """
+        动态构造 URL，确保 server_config 修改后立即生效。
+        """
+        return f"http://{self._host}:{self._port}"
+
+    def server_config(self, host: str = APPIUM_HOST, port: int = APPIUM_PORT)-> 'CoreDriver':
+        """
+        配置服务器信息。支持链式调用。
+        :param host: ip
+        :param port: 端口
+        :return: 返回 CoreDriver 实例自身，支持链式调用。
+        """
         self._host = host
         self._port = port
         logger.info(f"Appium Server 指向 -> {self._host}:{self._port}")
         return self
+
+    @staticmethod
+    def _make_options(platform: str | AppPlatform, caps: dict) -> AppiumOptions:
+        """
+        根据平台生成对应的 Options
+        :param platform: 目标平台 ('android' 或 'ios')，支持 AppPlatform 枚举或字符串。
+        :param caps: Appium capabilities 字典。
+        :return: AppiumOptions
+        """
+        match platform:
+            case AppPlatform.ANDROID.value:
+                logger.info(f"正在初始化 Android 会话...")
+                return UiAutomator2Options().load_capabilities(caps)
+
+            case AppPlatform.IOS.value:
+                logger.info(f"正在初始化 iOS 会话...")
+                return XCUITestOptions().load_capabilities(caps)
+
+            case _:
+                # 优化：不再默认返回 Android，而是显式报错 (Fail Fast)
+                msg = f"不支持的平台类型: [{platform}]。当前仅支持: [android, ios]"
+                logger.error(msg)
+                raise ValueError(msg)
 
     def connect(self, platform: str | AppPlatform, caps: dict,
                 extensions: list[Type[ExtensionBase]] | None = None,
@@ -71,33 +109,20 @@ class CoreDriver:
         """
         # 1. 统一格式化平台名称
         platform_name = platform.value if isinstance(platform, AppPlatform) else platform.lower().strip()
-        url = f"http://{self._host}:{self._port}"
 
         # 2. 预校验：如果已经有 driver 正在运行，先清理（防止 Session 冲突）
         if self.driver:
             logger.warning("发现旧的 Driver 实例尚未关闭，正在强制重置...")
             self.quit()
 
+        # 3. 匹配平台并加载 Options
+        options: AppiumOptions = self._make_options(platform_name, caps)
+
         try:
-            # 3. 匹配平台并加载 Options
-            match platform_name:
-                case AppPlatform.ANDROID.value:
-                    logger.info(f"正在初始化 Android 会话...")
-                    options: AppiumOptions = UiAutomator2Options().load_capabilities(caps)
-
-                case AppPlatform.IOS.value:
-                    logger.info(f"正在初始化 iOS 会话...")
-                    options: AppiumOptions = XCUITestOptions().load_capabilities(caps)
-
-                case _:
-                    # 优化：不再默认返回 Android，而是显式报错 (Fail Fast)
-                    msg = f"不支持的平台类型: [{platform_name}]。当前仅支持: [android, ios]"
-                    logger.error(msg)
-                    raise ValueError(msg)
 
             # 4. 创建连接
             self.driver = webdriver.Remote(
-                command_executor=url,
+                command_executor=self.server_url,
                 options=options,
                 extensions=extensions,
                 client_config=client_config
@@ -158,6 +183,7 @@ class CoreDriver:
         :return:
         """
         self.driver.implicitly_wait(timeout)
+        self._current_implicit_timeout = timeout  # 记录等待时间
 
     @resolve_wait_method
     def explicit_wait(self, method: Union[Callable[[webdriver.Remote], T], str], timeout: Optional[float] = None) -> \
@@ -256,9 +282,38 @@ class CoreDriver:
         self.explicit_wait(method, timeout).send_keys(text)
         return self
 
-    def is_visible(self, by: str, value: str, timeout: Optional[float] = None) -> bool:
+    def is_visible(self, by: str, value: str) -> bool | None:
         """
         判断元素是否可见
+        :param by: 定位策略。
+        :param value: 定位值。
+        :return: bool
+        """
+        # 禁用隐式等待
+        original_timeout = self._current_implicit_timeout
+        try:
+            self.implicit_wait(0)
+
+            by = by_converter(by)
+            elements = self.driver.find_elements(by, value)
+
+            if elements:
+                return elements[0].is_displayed()
+            # 2. 元素存在于 DOM 中，还需要判断它在 UI 上是否真正可见（宽/高 > 0 且未隐藏）
+            return False
+        except (StaleElementReferenceException, NoSuchElementException):
+            # 这些属于预料中的“不可见”情况
+            return False
+        except Exception as e:
+            _ = e
+            return False
+        finally:
+            # 恢复原来的隐式等待时间
+            self.implicit_wait(original_timeout)
+
+    def wait_until_visible(self, by: str, value: str, timeout: Optional[float] = None) -> bool:
+        """
+        等待元素出现
         :param by: 定位策略。
         :param value: 定位值。
         :param timeout: 等待超时时间。
@@ -268,6 +323,23 @@ class CoreDriver:
             by = by_converter(by)
             mark = (by, value)
             method = EC.visibility_of_element_located(mark)
+            self.explicit_wait(method, timeout)
+            return True
+        except TimeoutException:
+            return False
+
+    def wait_until_not_visible(self, by: str, value: str, timeout: Optional[float] = None) -> bool:
+        """
+        等待元素消失
+        :param by: 定位策略。
+        :param value: 定位值。
+        :param timeout: 等待超时时间。
+        :return: bool
+        """
+        try:
+            by = by_converter(by)
+            mark = (by, value)
+            method = EC.invisibility_of_element_located(mark)
             self.explicit_wait(method, timeout)
             return True
         except TimeoutException:
@@ -304,6 +376,60 @@ class CoreDriver:
         attr_value = element.get_attribute(name)
         logger.info(f"获取属性 {name} of {mark}: {attr_value}")
         return attr_value
+
+    def clear_popups(self, black_list: list = None, max_rounds: int = 5) -> bool:
+        """
+        显式清理弹窗函数。
+        说明：
+        1. 快速扫描：使用 is_visible (不等待) 确认弹窗是否存在。
+        2. 动作处理：发现后点击，并触发 wait_until_not_visible (异步等待消失)。
+        3. 自适应退出：当整轮扫描无障碍物时，立即返回，不浪费时间。
+        4. 异常存证：若点击失败或发生错误，自动截图。
+        :param black_list: 允许传入当前页面特有的弹窗定位 [(by, value), ...]（如某个活动的特殊广告）
+        :param max_rounds: 最大扫描轮数
+        :return: active: bool(清理过一个弹窗都将返回 True)
+        """
+        if not black_list:
+            logger.warning("未提供黑名单列表，跳过清理动作。")
+            return False
+
+        list_len = len(black_list)
+        active = False
+
+        logger.info(f"开始执行显式弹窗清理，待检查项: {list_len} 个")
+        for round_idx in range(max_rounds):
+            skip_count = 0
+            for by, value in black_list:
+
+                if not self.is_visible(by, value):
+                    skip_count += 1
+                    continue
+
+                logger.info(f"当前权重{skip_count},第 {round_idx + 1} 轮：待清理弹窗 -> {value}")
+                try:
+                    elements = self.find_elements(by, value, timeout=0.5)  # 使用极短超时
+                    if not elements:
+                        skip_count += 1
+                    else:
+                        elements[0].click()
+                        active = True
+
+                        # 消失得快返回得就快，最多等 1.5s
+                        if self.wait_until_not_visible(by, value, timeout=1.5):
+                            logger.info(f"弹窗已成功消失")
+                        else:
+                            logger.warning(f"弹窗点击后仍存在")
+
+                except Exception as e:
+                    safe_val = secrets.token_hex(8)
+                    file_name = f"popup_fail_{round_idx}_{safe_val}.png"
+
+                    logger.error(f"清理弹窗尝试点击时失败[{safe_val}:{value}]: {e}")
+                    self.full_screen_screenshot(file_name)
+                    raise e
+            if skip_count == list_len:
+                break
+        return active
 
     @property
     def session_id(self):
@@ -411,7 +537,8 @@ class CoreDriver:
 
         return self
 
-    def swipe_by_percent(self, start_xp:int, start_yp:int, end_xp:int, end_yp:int, duration: int = 1000) -> 'CoreDriver':
+    def swipe_by_percent(self, start_xp: int, start_yp: int, end_xp: int, end_yp: int,
+                         duration: int = 1000) -> 'CoreDriver':
         """
         按屏幕比例滑动 (0.5 = 50%)
         """
@@ -426,13 +553,52 @@ class CoreDriver:
             duration
         )
 
+    def full_screen_screenshot(self, name: str | None = None) -> str:
+        """
+        截取当前完整屏幕内容 (自愈逻辑、异常报错首选)
+        :param name: 图片文件名
+        :return: 截图保存的路径
+        """
+        file_name = f"{name or secrets.token_hex(8)}.png"
+        path = (SCREENSHOT_DIR / file_name).as_posix()
+
+        try:
+            # 核心：save_screenshot 是底层原生方法，不依赖任何元素定位
+            self.driver.save_screenshot(path)
+            logger.info(f"全屏截图已保存: {path}")
+            return path
+        except Exception as e:
+            logger.error(f"全屏截图失败: {e}")
+            return ""
+
+    def element_screenshot(self, by: str, value: str, name: str | None = None) -> str:
+        """
+        截取特定元素的图像 (业务校验、UI对比首选)
+        :param by: 定位策略
+        :param value: 定位值
+        :param name: 图片文件名
+        :return: 截图保存的路径
+        """
+        file_name = f"{name or secrets.token_hex(8)}.png"
+        path = (SCREENSHOT_DIR / file_name).as_posix()
+
+        try:
+            by = by_converter(by)
+            # 核心：直接调用底层 find_element，
+            self.driver.find_element(by, value).screenshot(path)
+            logger.info(f"元素截图已保存: {path}")
+            return path
+        except Exception as e:
+            logger.error(f"元素截图失败: {e}")
+            return ""
+
     @property
     def is_alive(self) -> bool:
         """判断当前驱动会话是否仍然存活。"""
         return self.driver is not None and self.driver.session_id is not None
 
     # --- 断言逻辑 ---
-    def assert_text(self, by:str, value:str, expected_text:str, timeout: Optional[float] = None) -> 'CoreDriver':
+    def assert_text(self, by: str, value: str, expected_text: str, timeout: Optional[float] = None) -> 'CoreDriver':
         """
         断言元素的文本内容是否符合预期。
         :param by: 定位策略。

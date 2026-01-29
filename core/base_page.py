@@ -10,36 +10,53 @@
 @desc: 
 """
 import logging
-from typing import Type, TypeVar
+import secrets
+from typing import Type, TypeVar, List, Tuple
+
+from appium import webdriver
+from selenium.common import TimeoutException
+
 from core.driver import CoreDriver
+
 # 定义一个泛型，用于类型推断（IDE 依然会有补全提示）
 T = TypeVar('T', bound='BasePage')
 logger = logging.getLogger(__name__)
-class BasePage:
-    def __init__(self, driver: CoreDriver):
-        self.driver = driver
-    # 这里放全局通用的 Page 属性和逻辑
-    # --- 页面工厂：属性懒加载 ---
-    # 这样你可以在任何页面直接通过 self.home_page 访问首页
-    @property
-    def home_page(self):
-        from page_objects.home_page import HomePage
-        return HomePage(self.driver)
 
-    @property
-    def login_page(self):
-        from page_objects.login_page import LoginPage
-        return LoginPage(self.driver)
+
+class BasePage(CoreDriver):
+
+    def __init__(self, driver: webdriver.Remote):
+        super().__init__(driver)
+        # 定义常见弹窗的关闭按钮定位
+
+    # 这里放全局通用的 Page 属性和逻辑
 
     # 封装一些所有页面通用的元动作
-    def get_toast(self, text):
-        return self.driver.is_visible("text", text)
+    def clear_permission_popups(self):
+        # 普适性黑名单
+        _black_list = [
+            ("id", "com.android.packageinstaller:id/permission_allow_button"),
+            ("xpath", "//*[@text='始终允许']"),
+            ("xpath", "//*[@text='稍后提醒']"),
+            ("xpath", "//*[@text='以后再说']"),
+            ("id", "com.app:id/iv_close_global_ad"),
+            ("accessibility id", "Close"),  # iOS 常用
+        ]
+        self.clear_popups(_black_list)
 
-    def to_page(self, page_class: Type[T]) -> T:
+    def clear_business_ads(self):
+        """在这里定义一些全 App 通用的业务广告清理"""
+        _ads = [("id", "com.app:id/global_ad_close")]
+        return self.clear_popups(_ads)
+
+    def get_toast(self, text):
+        return self.is_visible("text", text)
+
+    def go_to(self, page_name: Type[T]) -> T:
         """
         通用的页面跳转/获取方法
-        :param page_class: 目标页面类
+        :param page_name: 目标页面类
         :return: 目标页面的实例
         """
-        logger.info(f"跳转到页面: {page_class.__name__}")
-        return page_class(self.driver)
+        logger.info(f"跳转到页面: {page_name.__name__}")
+        return page_name(self.driver)

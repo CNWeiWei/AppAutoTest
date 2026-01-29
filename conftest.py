@@ -38,12 +38,20 @@ def driver(app_server):
     """
     # 实例化你提供的类结构
     app_helper = CoreDriver()
-
+    caps = {
+        "platformName": "Android",
+        "automationName": "uiautomator2",
+        "deviceName": "Android",
+        "appPackage": "com.bocionline.ibmp",
+        "appActivity": "com.bocionline.ibmp.app.main.launcher.LauncherActivity",
+        "noReset": False,  # 不清除应用数据
+        "newCommandTimeout": 60
+    }
     # 连接并获取原生 driver 实例
     # 这里可以根据需要扩展，比如通过命令行参数选择平台
-    app_helper.connect(platform="android", caps=ANDROID_CAPS)
+    app_helper.connect(platform="android", caps=caps)
 
-    yield app_helper
+    yield app_helper.driver
 
     # 用例结束，只关 session，不关 server
     app_helper.quit()

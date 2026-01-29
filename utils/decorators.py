@@ -2,7 +2,9 @@ import logging
 from functools import wraps
 from typing import Union, Callable
 
+
 from core.custom_expected_conditions import get_condition
+
 
 logger = logging.getLogger(__name__)
 
