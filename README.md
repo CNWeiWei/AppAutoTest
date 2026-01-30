@@ -1,6 +1,6 @@
 # AppAutoTest
 
-设备能力配置 (Capabilities)
+## 设备能力配置 (Capabilities)
 
 ```python
 ANDROID_CAPS = {
@@ -50,3 +50,16 @@ platformVersion：指定设备的Android系统版本（如 "11.0"）。虽然不
 unicodeKeyboard 和 resetKeyboard：用于处理中文输入等特殊字符输入。
 
 newCommandTimeout：设置Appium服务器等待客户端发送新命令的超时时间（秒），默认为60秒。在长时间操作中可能需要增加。
+
+## allure核心属性表
+
+| 属性                  | 说明                                   | 用法示例        |      
+|---------------------|--------------------------------------|-------------|
+| @allure.epic        | 顶层分类（如：APP项目名称）                      | 定义在测试类/项目上  |  
+| @allure.feature     | 功能模块（如：登录模块、交易模块）                    | 定义在测试类上     |     
+| @allure.story       | 用户场景（如：成功登录、账号锁定）                    | 定义在测试方法上    |    
+| @allure.title       | 测试用例标题（支持动态显示）                       | 替换方法名显示在报告中 | 
+| @allure.severity    | "严重程度（BLOCKER, CRITICAL, NORMAL...）" | 用于筛选高优先级用例  |  
+| @allure.description | 详细描述（支持 Markdown）                    | 解释测试背景或前提条件 | 
+| @allure.link        | 外部链接（Bug系统、需求文档）                     | 快速点击跳转      |      
+| @allure.issue       | 缺陷链接（通常会自动带上 ISSUE 前缀）               | 追踪已知 Bug    |

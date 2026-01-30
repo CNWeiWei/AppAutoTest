@@ -5,7 +5,6 @@ from typing import Union, Callable
 
 from core.custom_expected_conditions import get_condition
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -36,4 +35,20 @@ def resolve_wait_method(func):
 
         return func(self, method, *args, **kwargs)
 
+    return wrapper
+
+
+def exception_capture(func):
+    """
+    仅在原子动作失败时，触发 BasePage 层的业务截图逻辑
+    """
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except Exception as e:
+            # 自动捕获：调用 BasePage 层的 log_screenshot
+            if hasattr(self, "log_screenshot"):
+                self.log_screenshot(f"自动异常捕获{func.__name__}")
+            raise e
     return wrapper

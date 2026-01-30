@@ -42,8 +42,8 @@ def driver(app_server):
         "platformName": "Android",
         "automationName": "uiautomator2",
         "deviceName": "Android",
-        "appPackage": "com.bocionline.ibmp",
-        "appActivity": "com.bocionline.ibmp.app.main.launcher.LauncherActivity",
+        "appPackage": "io.appium.android.apis",
+        "appActivity": "io.appium.android.apis.ApiDemos",
         "noReset": False,  # 不清除应用数据
         "newCommandTimeout": 60
     }

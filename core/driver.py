@@ -58,7 +58,7 @@ class CoreDriver:
         """
         return f"http://{self._host}:{self._port}"
 
-    def server_config(self, host: str = APPIUM_HOST, port: int = APPIUM_PORT)-> 'CoreDriver':
+    def server_config(self, host: str = APPIUM_HOST, port: int = APPIUM_PORT) -> 'CoreDriver':
         """
         配置服务器信息。支持链式调用。
         :param host: ip
@@ -358,7 +358,7 @@ class CoreDriver:
         method = EC.visibility_of_element_located(mark)
 
         text = self.explicit_wait(method, timeout).text
-        logger.info(f"获取到的文本{text}")
+        logger.info(f"获取到的文本: {text}")
         return text
 
     def get_attribute(self, by: str, value: str, name: str, timeout: Optional[float] = None) -> str:
@@ -596,22 +596,6 @@ class CoreDriver:
     def is_alive(self) -> bool:
         """判断当前驱动会话是否仍然存活。"""
         return self.driver is not None and self.driver.session_id is not None
-
-    # --- 断言逻辑 ---
-    def assert_text(self, by: str, value: str, expected_text: str, timeout: Optional[float] = None) -> 'CoreDriver':
-        """
-        断言元素的文本内容是否符合预期。
-        :param by: 定位策略。
-        :param value: 定位值。
-        :param expected_text: 期望的文本。
-        :param timeout: 等待元素可见的超时时间。
-        :return: self，支持链式调用。
-        :raises AssertionError: 如果文本不匹配。
-        """
-        actual = self.get_text(by, value, timeout)
-        assert actual == expected_text, f"断言失败: 期望 {expected_text}, 实际 {actual}"
-        logger.info(f"断言通过: 文本匹配 '{actual}'")
-        return self
 
     def quit(self):
         """安全关闭 Appium 驱动并断开连接。"""
