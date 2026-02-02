@@ -10,31 +10,70 @@
 @desc: 
 """
 import logging
-import secrets
-from typing import Type, TypeVar, List, Tuple, Optional
-import allure
 from pathlib import Path
+from typing import Type, TypeVar, Optional
+
+import allure
 from appium import webdriver
-from selenium.common import TimeoutException
 
 from core.driver import CoreDriver
-from utils.decorators import exception_capture
 
-# 定义一个泛型，用于类型推断（IDE 依然会有补全提示）
+# 定义一个泛型，用于类型推断
 T = TypeVar('T', bound='BasePage')
+
 logger = logging.getLogger(__name__)
 
 
 class BasePage(CoreDriver):
-
+    # --- 全局通用的属性 ---
     def __init__(self, driver: webdriver.Remote):
-        super().__init__(driver)
-        # 定义常见弹窗的关闭按钮定位
-
-    def log_screenshot(self, label: str = "步骤截图"):
         """
-        业务级截图：执行截图并附加到 Allure 报告。
-        用户可自由手动调用此方法。
+        初始化 BasePage。
+
+        :param driver: Appium WebDriver 实例
+        """
+        super().__init__(driver)
+
+    # --- 所有页面通用的元动作 ---
+    def go_to(self, page_cls: Type[T]) -> T:
+        """
+        通用的页面跳转/实例化方法 (Page Factory)。
+
+        :param page_cls: 目标页面类 (BasePage 的子类)
+        :return: 目标页面的实例
+        """
+        logger.info(f"跳转到页面: {page_cls.__name__}")
+        return page_cls(self.driver)
+
+    def handle_permission_popups(self):
+        """
+        处理通用的系统权限弹窗。
+        遍历预定义的黑名单，尝试关闭出现的系统级弹窗（如权限申请、安装确认等）。
+        """
+        # 普适性黑名单
+        popup_blacklist = [
+            ("id", "com.android.packageinstaller:id/permission_allow_button"),
+            ("xpath", "//*[@text='始终允许']"),
+            ("xpath", "//*[@text='稍后提醒']"),
+            ("xpath", "//*[@text='以后再说']"),
+            ("id", "com.app:id/iv_close_global_ad"),
+            ("accessibility id", "Close"),  # iOS 常用
+        ]
+        self.clear_popups(popup_blacklist)
+
+    def handle_business_ads(self):
+        """
+        处理全 App 通用的业务广告弹窗。
+        针对应用启动后可能出现的全局广告进行关闭处理。
+        """
+        ads_blacklist = [("id", "com.app:id/global_ad_close")]
+        return self.clear_popups(ads_blacklist)
+
+    def save_and_attach_screenshot(self, label: str = "日志截图") -> None:
+        """
+        保存截图到本地并附加到 Allure 报告。
+        
+        :param label: 截图在报告中显示的名称
         """
         path_str = self.full_screen_screenshot(name=label)
 
@@ -47,15 +86,16 @@ class BasePage(CoreDriver):
                     attachment_type=allure.attachment_type.PNG
                 )
 
-    def log_screenshot_bytes(self, label: str = "步骤截图"):
+    def attach_screenshot_bytes(self, label: str = "日志截图") -> None:
         """
-        业务级截图：执行截图并附加到 Allure 报告。
-        用户可自由手动调用此方法。
+        直接获取内存中的截图数据并附加到 Allure 报告（不存本地文件）。
+        
+        :param label: 截图在报告中显示的名称
         """
-        _img: bytes = self.driver.get_screenshot_as_png()
+        screenshot_bytes: bytes = self.driver.get_screenshot_as_png()
 
         allure.attach(
-            _img,
+            screenshot_bytes,
             name=label,
             attachment_type=allure.attachment_type.PNG
         )
@@ -64,6 +104,7 @@ class BasePage(CoreDriver):
     def assert_text(self, by: str, value: str, expected_text: str, timeout: Optional[float] = None) -> 'BasePage':
         """
         断言元素的文本内容是否符合预期。
+        
         :param by: 定位策略。
         :param value: 定位值。
         :param expected_text: 期望的文本。
@@ -87,45 +128,21 @@ class BasePage(CoreDriver):
             logger.info(f"断言通过: 文本匹配 '{actual}'")
         return self
 
-    # 这里放全局通用的 Page 属性和逻辑
-    def assert_visible(self, by: str, value: str, msg: str = "元素可见性校验"):
+    def assert_visible(self, by: str, value: str, msg: str = "元素可见性校验") -> 'BasePage':
         """
-        增强版断言：成功/失败均截图
+        断言元素是否可见。
+        
+        :param by: 定位策略
+        :param value: 定位值
+        :param msg: 断言描述信息
+        :return: self，支持链式调用
         """
         with allure.step(f"断言检查: {msg}"):
-            try:
-                element = self.find_element(by, value)
-                assert element.is_displayed()
-                # 成功存证
-            except Exception as e:
-                raise e
+            element = self.find_element(by, value)
+            is_displayed = element.is_displayed()
 
-    # 封装一些所有页面通用的元动作
-    def clear_permission_popups(self):
-        # 普适性黑名单
-        _black_list = [
-            ("id", "com.android.packageinstaller:id/permission_allow_button"),
-            ("xpath", "//*[@text='始终允许']"),
-            ("xpath", "//*[@text='稍后提醒']"),
-            ("xpath", "//*[@text='以后再说']"),
-            ("id", "com.app:id/iv_close_global_ad"),
-            ("accessibility id", "Close"),  # iOS 常用
-        ]
-        self.clear_popups(_black_list)
+            if is_displayed:
+                logger.info(f"断言通过: 元素 [{value}] 可见")
 
-    def clear_business_ads(self):
-        """在这里定义一些全 App 通用的业务广告清理"""
-        _ads = [("id", "com.app:id/global_ad_close")]
-        return self.clear_popups(_ads)
-
-    def get_toast(self, text):
-        return self.is_visible("text", text)
-
-    def go_to(self, page_name: Type[T]) -> T:
-        """
-        通用的页面跳转/获取方法
-        :param page_name: 目标页面类
-        :return: 目标页面的实例
-        """
-        logger.info(f"跳转到页面: {page_name.__name__}")
-        return page_name(self.driver)
+            assert is_displayed, f"断言失败: 元素 [{value}] 不可见"
+        return self

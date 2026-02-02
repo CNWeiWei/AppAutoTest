@@ -12,13 +12,13 @@
 """
 
 import logging
-from typing import Tuple, Any, Union
+from typing import Any, Union
+
 from appium.webdriver.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import StaleElementReferenceException, NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-
+from selenium.common.exceptions import StaleElementReferenceException, NoSuchElementException
 
 logger = logging.getLogger(__name__)
 
@@ -34,15 +34,30 @@ logger = logging.getLogger(__name__)
 
 # 自定义预期条件(Custom Expected Condition)
 class BaseCondition:
-    """基础条件类：负责统一的 WebDriverWait 协议实现和异常拦截"""
+    """
+    基础条件类：负责统一的 WebDriverWait 协议实现和异常拦截。
+    所有自定义的类形式 EC 都应继承此类
+    """
 
     def __call__(self, driver: WebDriver):
+        """
+        WebDriverWait 调用的入口方法。
+        
+        :param driver: WebDriver 实例
+        :return: check 方法的返回值，或者在捕获异常时返回 False
+        """
         try:
             return self.check(driver)
         except (NoSuchElementException, StaleElementReferenceException):
             return False
 
     def check(self, driver: WebDriver):
+        """
+        执行具体的检查逻辑，由子类实现。
+
+        :param driver: WebDriver 实例
+        :return: 判定成功返回对象或 True，失败返回 False
+        """
         raise NotImplementedError("子类必须实现 check 方法")
 
 
@@ -51,10 +66,13 @@ EC_MAPPING: dict[str, Any] = {}
 
 def register(name: str = None):
     """
-    强大的注册装饰器：
+    自定义预期条件注册装饰器：
     1. @register() -> 使用函数名注册
     2. @register("alias") -> 使用别名注册
     3. register("name", func) -> 手动注入
+
+    :param name: 注册别名，默认为函数/类名
+    :return: 装饰器函数
     """
 
     def decorator(item):
@@ -67,7 +85,13 @@ def register(name: str = None):
 
 @register("toast_visible")
 class ToastVisible(BaseCondition):
+    """检查 Toast 消息是否可见"""
+
     def __init__(self, text: str, partial: Union[str, bool] = True):
+        """
+        :param text: 期望的 Toast 文本
+        :param partial: 是否部分匹配 (默认 True)
+        """
         self.text = text
         # 处理从装饰器传来的字符串 "true"/"false"
         if isinstance(partial, str):
@@ -84,8 +108,16 @@ class ToastVisible(BaseCondition):
 
 @register("attr_contains")
 class ElementHasAttribute(BaseCondition):
+    """检查元素的属性是否包含特定值"""
+
     # 扁平化参数以支持字符串调用: "attr_contains:id,btn_id,checked,true"
     def __init__(self, by: str, value: str, attribute: str, expect_value: str):
+        """
+        :param by: 定位策略
+        :param value: 定位值
+        :param attribute: 属性名
+        :param expect_value: 期望包含的属性值
+        """
         self.locator = (by, value)
         self.attribute = attribute
         self.value = expect_value
@@ -114,6 +146,13 @@ class ElementCountAtLeast(BaseCondition):
 
 @register()  # 使用函数名 is_element_present 注册
 def is_element_present(by: str, value: str):
+    """
+    检查元素是否存在于 DOM 中 (不一定可见)。
+
+    :param by: 定位策略
+    :param value: 定位值
+    :return: 判定函数
+    """
     locator = (by, value)
 
     def _predicate(driver):
@@ -128,6 +167,13 @@ def is_element_present(by: str, value: str):
 
 @register()
 def system_ready(api_client):
+    """
+    检查外部系统 (API) 是否就绪。
+
+    :param api_client: API 客户端实例
+    :return: 判定函数
+    """
+
     def _predicate(_):  # 忽略传入的 driver
 
         try:
@@ -145,6 +191,11 @@ def get_condition(method: Union[str, Any], *args, **kwargs):
     1. 如果 method 是字符串，先查自定义 EC_MAPPING
     2. 如果自定义里没有，去官方 selenium.webdriver.support.expected_conditions 找
     3. 如果 method 本身就是 Callable (比如 EC.presence_of_element_located)，直接透传
+
+    :param method: 预期条件名称 (str) 或 可调用对象
+    :param args: 传递给条件的参数
+    :param kwargs: 传递给条件的关键字参数
+    :return: 实例化后的预期条件对象 (Callable)
     """
 
     # 情况 A: 如果传入的是官方 EC 对象或自定义函数实例，直接返回

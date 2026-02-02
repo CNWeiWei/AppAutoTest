@@ -31,6 +31,8 @@ for folder in [LOG_DIR, LOG_BACKUP_DIR, ALLURE_TEMP, SCREENSHOT_DIR]:
 # --- 文件路径 ---
 LOG_SOURCE = LOG_DIR / "pytest.log"
 
+# --- 启动 Appium 最大尝试次数 ---
+MAX_RETRIES = 40
 # --- 业务常量 (可选) ---
 IMPLICIT_WAIT_TIMEOUT = 10
 EXPLICIT_WAIT_TIMEOUT = 10

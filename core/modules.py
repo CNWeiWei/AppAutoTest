@@ -13,11 +13,18 @@
 from enum import Enum
 
 class AppPlatform(Enum):
+    """
+    定义支持的移动应用平台枚举。
+    """
     ANDROID = "android"
     IOS = "ios"
 
 
 class Locator(str, Enum):
+    """
+    定义元素定位策略枚举。
+    继承 str 以便直接作为参数传递给 Selenium/Appium 方法。
+    """
     # --- 原有 Selenium 支持 ---
     ID = "id"
     NAME = "name"

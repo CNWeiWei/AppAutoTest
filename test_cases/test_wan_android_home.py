@@ -14,8 +14,8 @@ import logging
 import allure
 import pytest
 
-from page_objects.api_demod_home import HomePage
-from page_objects.api_demos_views import ViewsPage
+from page_objects.wan_android_home import HomePage
+from page_objects.wan_android_sidebar import ViewsPage
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 @allure.epic("ApiDemos")
 @allure.feature("登录认证模块")
 class TestApiDemos:
-    # @allure.story("常规登录场景")
+    @allure.story("常规登录场景")
     @allure.title("使用合法账号登录成功")
     @allure.severity(allure.severity_level.BLOCKER)
     @allure.description("""

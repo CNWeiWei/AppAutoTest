@@ -10,7 +10,9 @@
 @desc: 
 """
 import logging
+import secrets
 
+import allure
 import pytest
 from core.run_appium import start_appium_service, stop_appium_service
 from core.driver import CoreDriver
@@ -42,8 +44,10 @@ def driver(app_server):
         "platformName": "Android",
         "automationName": "uiautomator2",
         "deviceName": "Android",
-        "appPackage": "io.appium.android.apis",
-        "appActivity": "io.appium.android.apis.ApiDemos",
+        "appPackage": "com.manu.wanandroid",
+        # "appPackage": "com.bocionline.ibmp",
+        "appActivity": "com.manu.wanandroid.ui.main.activity.MainActivity",
+        # "appActivity": "com.bocionline.ibmp.app.main.launcher.LauncherActivity",
         "noReset": False,  # 不清除应用数据
         "newCommandTimeout": 60
     }
@@ -68,6 +72,21 @@ def pytest_exception_interact(node, call, report):
     if report.failed:
         # 获取详细的错误堆栈（包含 assert 的对比信息）
         exc_info = call.excinfo.getrepr(style='no-locals')
+        name = f"异常截图_{secrets.token_hex(8)}"
 
         logger.error(f"TEST FAILED: {node.nodeid}")
+        logger.error(f"截图名称: {name}")
         logger.error(f"详细错误信息如下:\n{exc_info}")
+
+        # 3. 自动截图：尝试从 fixture 中获取 driver
+        # node.funcargs 包含了当前测试用例请求的所有 fixture 实例
+        driver = node.funcargs.get("driver")
+        if driver:
+            try:
+                allure.attach(
+                    driver.get_screenshot_as_png(),
+                    name=name,
+                    attachment_type=allure.attachment_type.PNG
+                )
+            except Exception as e:
+                logger.error(f"执行异常截图失败: {e}")

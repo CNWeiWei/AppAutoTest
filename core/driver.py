@@ -11,7 +11,7 @@
 """
 import logging
 import secrets  # 原生库，用于生成安全的随机数
-from typing import Optional, Type, TypeVar, Union, Callable
+from typing import Optional, Type, TypeVar, Union, Callable, Any
 from time import sleep
 
 from appium import webdriver
@@ -431,8 +431,16 @@ class CoreDriver:
                 break
         return active
 
+    def back(self) -> 'CoreDriver':
+        """
+        模拟设备返回键操作。
+        :return: self
+        """
+        self.driver.back()
+        return self
+
     @property
-    def session_id(self):
+    def session_id(self) -> Any | None:
         """获取当前 Appium 会话的 Session ID。"""
         return self.driver.session_id
 
@@ -463,7 +471,7 @@ class CoreDriver:
     def swipe(self, direction: str = "up", duration: int = 1000) -> 'CoreDriver':
         """
         封装方向滑动
-        :param direction: 滑动方向 up/down/left/right
+        :param direction: 滑动方向 up/down/left/right (指手指滑动的方向)
         :param duration: 滑动持续时间 (ms)
         :return: self
         """
@@ -486,7 +494,16 @@ class CoreDriver:
     def long_press(self, element: Optional[WebElement] = None, x: Optional[int] = None, y: Optional[int] = None,
                    duration: int = 2000) -> 'CoreDriver':
         """
-        长按封装：支持传入元素或坐标
+        长按封装：支持传入元素或坐标。
+        如果传入 element，则计算其中心点坐标进行长按。
+        如果传入 x, y，则直接在坐标处长按。
+
+        :param element: 目标元素 (WebElement)，可选。
+        :param x: 绝对坐标 X，可选。
+        :param y: 绝对坐标 Y，可选。
+        :param duration: 长按持续时间 (ms)，默认 2000ms。
+        :return: self
+        :raises ValueError: 如果既未传入 element 也未传入坐标 (x, y)。
         """
         if element:
             rect = element.rect
@@ -502,7 +519,13 @@ class CoreDriver:
 
     def drag_and_drop(self, source_el: WebElement, target_el: WebElement, duration: int = 1000) -> 'CoreDriver':
         """
-        将 source_el 拖拽到 target_el
+        将 source_el 拖拽到 target_el。
+        计算两个元素的中心点，执行从源元素中心到目标元素中心的拖拽操作。
+
+        :param source_el: 源元素 (WebElement)。
+        :param target_el: 目标元素 (WebElement)。
+        :param duration: 拖拽过程持续时间 (ms)，默认 1000ms。
+        :return: self
         """
         s_rect = source_el.rect
         t_rect = target_el.rect
@@ -518,6 +541,7 @@ class CoreDriver:
         智能滚动：自动识别平台并调用最稳定的原生滚动脚本
         :param element: 需要滚动的容器元素 (如 ScrollView, RecyclerView, TableView)
         :param direction: 滚动方向 'up', 'down', 'left', 'right'
+        :return: self
         """
         platform = self.driver.capabilities.get('platformName', '').lower()
         match platform:
@@ -537,10 +561,18 @@ class CoreDriver:
 
         return self
 
-    def swipe_by_percent(self, start_xp: int, start_yp: int, end_xp: int, end_yp: int,
+    def swipe_by_percent(self, start_xp: float, start_yp: float, end_xp: float, end_yp: float,
                          duration: int = 1000) -> 'CoreDriver':
         """
-        按屏幕比例滑动 (0.5 = 50%)
+        按屏幕比例滑动。
+        坐标值为屏幕宽高的百分比 (0.0 - 1.0)。
+
+        :param start_xp: 起点 X 比例 (如 0.5)。
+        :param start_yp: 起点 Y 比例 (如 0.8)。
+        :param end_xp: 终点 X 比例 (如 0.5)。
+        :param end_yp: 终点 Y 比例 (如 0.2)。
+        :param duration: 滑动持续时间 (ms)，默认 1000ms。
+        :return: self
         """
         size = self.driver.get_window_size()
         w, h = size['width'], size['height']
