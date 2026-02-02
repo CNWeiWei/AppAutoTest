@@ -21,24 +21,28 @@ logger = logging.getLogger(__name__)
 
 class HomePage(BasePage):
     # 定位参数
-    text = ("accessibility id", "Text")
-    unicode = ("accessibility id", "Unicode")
+    menu = ("accessibility id", "开启")
+    home = ("-android uiautomator", 'new UiSelector().resourceId("com.manu.wanandroid:id/icon").instance(0)')
+    project = ("-android uiautomator", 'new UiSelector().text("项目")')
+    system = ("-android uiautomator", 'new UiSelector().text("体系")')
+
+
+    tv_name = ("id", "com.manu.wanandroid:id/tvName")
 
     def __init__(self, driver: webdriver.Remote):
         super().__init__(driver)
 
-    @allure.step("点击 “Text ”")
-    def click_text(self):
-        if self.wait_until_visible(*self.text, timeout=1):
-            with allure.step("发现Text，开始执行点击"):
-                # self.log_screenshot_bytes("Text截图").click(*self.text)
-                self.log_screenshot_bytes("Text截图")
-                self.click(*self.text)
+    @allure.step("点击 “侧边栏”")
+    def click_open(self):
+        if self.wait_until_visible(*self.menu, timeout=1):
+            self.click(*self.menu)
+            self.attach_screenshot_bytes("侧边栏截图")
+        with allure.step("准备登录"):
+            self.click(*self.tv_name)
 
-    @allure.step("点击 “Unicode ”：{1}")
-    def click_unicode(self, taget):
+    @allure.step("登录账号：{1}")
+    def click_unicode(self, username,password):
         """执行登录业务逻辑"""
-        # 调用继承自 CoreDriver 的方法（假设你的 CoreDriver 已经被注入或组合）
 
         if self.wait_until_visible(*self.unicode):
             self.swipe("left")
