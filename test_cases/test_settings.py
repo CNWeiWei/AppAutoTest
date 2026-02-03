@@ -11,20 +11,23 @@
 """
 import logging
 
-from utils.logger import trace_step
+import allure
+
+from utils.decorators import step_trace
 
 logger = logging.getLogger(__name__)
-
-@trace_step("验证失败",)
+@allure.epic("中银国际移动端重构项目")
+@allure.feature("登认证模块")
+@step_trace("验证失败",)
 def test_settings_page_display(driver):
     """
     测试设置页面是否成功加载
     """
     # 此时 driver 已经通过 fixture 完成了初始化
-    current_act = driver.driver.current_activity
+    current_act = driver.current_activity
     logger.info(f"捕获到当前 Activity: {current_act}")
 
-    assert ".unihome.UniHomeLauncher" in current_act
+    assert ".app.main.launcher.LauncherActivity" in current_act
 
 
 def test_wifi_entry_exists(driver):
@@ -34,4 +37,4 @@ def test_wifi_entry_exists(driver):
     # 这里的 driver 就是 appium.webdriver.Remote 实例
     # 假设我们要查找“网络”相关的 ID
     # el = driver.find_element(by='id', value='android:id/title')
-    assert driver.driver.session_id is not None
+    assert driver.session_id is not None

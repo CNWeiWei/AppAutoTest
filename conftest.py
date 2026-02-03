@@ -16,14 +16,22 @@ import allure
 import pytest
 from core.run_appium import start_appium_service, stop_appium_service
 from core.driver import CoreDriver
-from core.settings import ANDROID_CAPS
+from utils.dirs_manager import ensure_dirs_ok
+
+
+def pytest_configure(config):
+    """
+    Pytest 钩子函数：在测试收集开始前执行
+    """
+    # ensure_dirs_ok()
+    ...
 
 
 @pytest.fixture(scope="session")
 def app_server():
     """
     第一层：管理 Appium Server 进程。
-    利用你原本 start_appium_service 里的 40 次轮询和 sys.exit(1) 逻辑。
+    利用start_appium_service 里的 40 次轮询和 sys.exit(1) 逻辑。
     """
     # 启动服务
     service = start_appium_service()
@@ -67,15 +75,17 @@ def pytest_exception_interact(node, call, report):
     我们在这里手动把错误信息喂给 logging。
     """
     # 获取名为 'Error' 的记录器，它会遵循 pytest.ini 中的 log_file 配置
-    logger = logging.getLogger("Error")
+    logger = logging.getLogger("pytest")
 
     if report.failed:
         # 获取详细的错误堆栈（包含 assert 的对比信息）
-        exc_info = call.excinfo.getrepr(style='no-locals')
-        name = f"异常截图_{secrets.token_hex(8)}"
+        # long,short,no-locals
+        exc_info = call.excinfo.getrepr(style='short')
+        screenshot_name = f"异常截图_{secrets.token_hex(4)}"
 
-        logger.error(f"TEST FAILED: {node.nodeid}")
-        logger.error(f"截图名称: {name}")
+        logger.error("\n" + "=" * 40 + " TEST FAILED " + "=" * 40)
+        logger.error(f"Node ID: {node.nodeid}")
+        logger.error(f"截图名称: {screenshot_name}")
         logger.error(f"详细错误信息如下:\n{exc_info}")
 
         # 3. 自动截图：尝试从 fixture 中获取 driver
@@ -83,10 +93,13 @@ def pytest_exception_interact(node, call, report):
         driver = node.funcargs.get("driver")
         if driver:
             try:
+                # 同时保存到 Allure 和本地（如果你需要本地有一份备份）
+                screenshot_data = driver.get_screenshot_as_png()
                 allure.attach(
-                    driver.get_screenshot_as_png(),
+                    screenshot_data,
                     name=name,
                     attachment_type=allure.attachment_type.PNG
                 )
             except Exception as e:
                 logger.error(f"执行异常截图失败: {e}")
+        logger.error("=" * 93 + "\n")
