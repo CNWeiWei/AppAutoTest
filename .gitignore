@@ -19,7 +19,7 @@ outputs/screenshots/
 
 # --- Allure 报告 ---
 temp/
-report/
+reports/
 .allure/
 
 # --- pytest缓存 ---

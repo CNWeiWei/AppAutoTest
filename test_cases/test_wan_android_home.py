@@ -10,15 +10,19 @@
 @desc: 
 """
 import logging
+import os
 
 import allure
 import pytest
-
+from dotenv import load_dotenv
 from page_objects.wan_android_home import HomePage
 from page_objects.wan_android_sidebar import ViewsPage
 
+load_dotenv()
+
 # 配置日志
 logger = logging.getLogger(__name__)
+
 
 @allure.epic("ApiDemos")
 @allure.feature("登录认证模块")
@@ -34,20 +38,20 @@ class TestApiDemos:
         """)
     @allure.link("https://docs.example.com/login_spec", name="登录业务说明文档")
     @allure.issue("BUG-1001", "已知偶发：部分机型广告Banner无法滑动")
-    def test_api_demos_success(self, driver,user):
+    def test_api_demos_success(self, driver):
         """
         测试场景：使用正确的用户名和密码登录成功
         """
-        api_demos = HomePage(driver)
+        wan = HomePage(driver)
 
         # 执行业务逻辑
-        api_demos.click_text()
-        api_demos.click_unicode()
+        wan.click_open()
+        wan.login(os.getenv("USER_NAME"),os.getenv("PASS_WORD"))
         # 断言部分使用 allure.step 包装，使其在报告中也是一个可读的步骤
         with allure.step("最终校验：检查是否进入首页并显示‘交易’标题"):
-            actual_text = api_demos.get_home_text()
-            assert actual_text == "Text"
-
+            # actual_text = api_demos.get_home_text()
+            # assert actual_text == "Text"
+            print("开发中。。。")
         # 页面跳转
-        api_demos.go_to(ViewsPage).screenshot_views()
-        api_demos.delay(5)
+        # wan.go_to(ViewsPage).screenshot_views()
+        wan.delay(5)

@@ -585,6 +585,44 @@ class CoreDriver:
             duration
         )
 
+    # --- 上下文切换 (Context Switch) ---
+    def switch_to_context(self, context_name: str) -> 'CoreDriver':
+        """
+        切换到指定的上下文 (Context)。
+        :param context_name: 上下文名称 (如 'NATIVE_APP', 'WEBVIEW_com.example.app')
+        :return: self
+        """
+        logger.info(f"尝试切换到上下文: {context_name}")
+        try:
+            self.driver.switch_to.context(context_name)
+            logger.info(f"成功切换到上下文: {context_name}")
+        except Exception as e:
+            logger.error(f"切换上下文失败: {e}")
+            available_contexts = self.driver.contexts
+            logger.info(f"当前可用上下文: {available_contexts}")
+            raise e
+        return self
+
+    def switch_to_webview(self) -> 'CoreDriver':
+        """
+        自动切换到第一个可用的 WebView 上下文。
+        :return: self
+        """
+        logger.info("尝试自动切换到 WebView 上下文...")
+        contexts = self.driver.contexts
+        for context in contexts:
+            if 'WEBVIEW' in context:
+                return self.switch_to_context(context)
+
+        logger.warning("未找到 WebView 上下文，保持在当前上下文。")
+        return self
+
+    def switch_to_native(self) -> 'CoreDriver':
+        """
+        切换回原生应用上下文 (NATIVE_APP)。
+        :return: self
+        """
+        return self.switch_to_context('NATIVE_APP')
     def full_screen_screenshot(self, name: str | None = None) -> str:
         """
         截取当前完整屏幕内容 (自愈逻辑、异常报错首选)

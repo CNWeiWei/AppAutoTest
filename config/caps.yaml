@@ -1,0 +1,19 @@
+# Appium Capabilities Configuration
+android:
+  platformName: "Android"
+  automationName: "uiautomator2"
+  deviceName: "Android"
+  appPackage: "com.manu.wanandroid"
+  appActivity: "com.manu.wanandroid.ui.main.activity.MainActivity"
+  noReset: false
+  newCommandTimeout: 60
+  # udid: "emulator-5554" # Can be injected via CLI
+
+ios:
+  platformName: "iOS"
+  automationName: "XCUITest"
+  deviceName: "iPhone 14"
+  bundleId: "com.example.app"
+  autoAcceptAlerts: true
+  waitForQuiescence: false
+  newCommandTimeout: 60
