@@ -12,10 +12,9 @@ wheels/
 venv/
 node_modules/
 uv.lock
+
 # --- 屏蔽outputs ---
-outputs/logs/*.log
-outputs/logs/backups/*
-outputs/screenshots/
+outputs/
 
 # --- Allure 报告 ---
 temp/

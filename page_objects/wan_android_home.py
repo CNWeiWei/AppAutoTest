@@ -10,7 +10,6 @@
 @desc: 
 """
 import logging
-import os
 
 import allure
 from appium import webdriver
@@ -32,7 +31,6 @@ class HomePage(BasePage):
     account=("-android uiautomator",'new UiSelector().text("账号")')
     pass_word=("-android uiautomator",'new UiSelector().text("密码")')
 
-
     login_button = ("accessibility id", '登录')
 
     def __init__(self, driver: webdriver.Remote):
@@ -49,21 +47,19 @@ class HomePage(BasePage):
     @allure.step("登录账号：{1}")
     def login(self, username, password):
         """执行登录业务逻辑"""
-        account_input = {"elementId": '00000000-0000-0ecb-0000-0017000002d8', "text": username}
-        pass_word_input = {"elementId": '00000000-0000-0ecb-0000-0018000002d8', "text": password}
+        account_element_id =self.find_element(*self.account).id
+        account_input = {"elementId": account_element_id, "text": username}
+
+        pwd_element_id =self.find_element(*self.pass_word).id
+        pass_word_input = {"elementId": pwd_element_id, "text": password}
+
         if self.wait_until_visible(*self.login_button):
             self.click(*self.account).driver.execute_script('mobile: type', account_input)
             self.click(*self.pass_word).driver.execute_script('mobile: type', pass_word_input)
 
-        self.click(*self.login_button).full_screen_screenshot()
+        self.click(*self.login_button)
 
-    # @allure.step("获取 “Text ”文本")
-    # def get_home_text(self):
-    #     """执行登录业务逻辑"""os.getenv("USER_NAME") os.getenv("PASS_WORD")
-    #     # 调用继承自 CoreDriver 的方法（假设你的 CoreDriver 已经被注入或组合）
-    #     """
-    #     {   "elementId": "00000000-0000-0ecb-0000-0017000002d8",   "text": "admintest123456" }
-    #     {   "elementId": "00000000-0000-0ecb-0000-0018000002d8",   "text": "admin123456" }
-    #     """
-    #
-    #     return self.get_text(*self.text)
+        if self.wait_until_visible(*self.tv_name):
+            self.full_screen_screenshot("登陆成功")
+            self.long_press(x=636,y=117,duration=300)
+

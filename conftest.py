@@ -171,7 +171,7 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
     # 收集环境信息
     env_info = {
         "Platform": session.config.getoption("--platform"),
-        "UDID": final_caps.get("udid") or session.config.getoption("--udid") or "未指定",
+        "UDID": final_caps.get("udid") or session.config.getoption("--udid") or "Not Specified",
         "Host": session.config.getoption("--host"),
         "Python": "3.11+"
     }

@@ -5,7 +5,7 @@
 @author: CNWei,ChenWei
 @Software: PyCharm
 @contact: t6g888@163.com
-@file: test_api_demos
+@file: test_wan_android_home
 @date: 2026/1/30 17:42
 @desc: 
 """
@@ -13,10 +13,10 @@ import logging
 import os
 
 import allure
-import pytest
 from dotenv import load_dotenv
+
 from page_objects.wan_android_home import HomePage
-from page_objects.wan_android_sidebar import ViewsPage
+from page_objects.wan_android_project import ProjectPage
 
 load_dotenv()
 
@@ -24,34 +24,39 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-@allure.epic("ApiDemos")
-@allure.feature("登录认证模块")
-class TestApiDemos:
+@allure.epic("测试用例示例")
+@allure.feature("登录模块")
+class TestWanAndroidHome:
     @allure.story("常规登录场景")
     @allure.title("使用合法账号登录成功")
     @allure.severity(allure.severity_level.BLOCKER)
     @allure.description("""
         验证用户在正常网络环境下：
         1. 处理初始化弹窗和广告
-        2. 选择证券登录类型
-        3. 输入正确凭证后成功跳转至‘交易’首页
+        2. 输入正确账号密码后成功登录
         """)
     @allure.link("https://docs.example.com/login_spec", name="登录业务说明文档")
-    @allure.issue("BUG-1001", "已知偶发：部分机型广告Banner无法滑动")
+    @allure.issue("BUG-1001", "已知偶发：我是一个bug")
     def test_api_demos_success(self, driver):
         """
         测试场景：使用正确的用户名和密码登录成功
         """
-        wan = HomePage(driver)
+        home = HomePage(driver)
 
         # 执行业务逻辑
-        wan.click_open()
-        wan.login(os.getenv("USER_NAME"),os.getenv("PASS_WORD"))
+        home.click_open()
+
+        home.login(os.getenv("USER_NAME"), os.getenv("PASS_WORD"))
+
         # 断言部分使用 allure.step 包装，使其在报告中也是一个可读的步骤
-        with allure.step("最终校验：检查是否进入首页并显示‘交易’标题"):
-            # actual_text = api_demos.get_home_text()
-            # assert actual_text == "Text"
-            print("开发中。。。")
+        with allure.step("断言"):
+            assert os.getenv("USER_NAME") == 'admintest123456'
+
+
         # 页面跳转
-        # wan.go_to(ViewsPage).screenshot_views()
-        wan.delay(5)
+        with allure.step("验证页面跳转"):
+            project = home.go_to(ProjectPage)
+            project.switch_to_project()
+            project.assert_text(*project.pro_table_title,expected_text='完整项目')
+
+        project.delay(5)

@@ -22,7 +22,7 @@ SCREENSHOT_DIR = OUTPUT_DIR / "screenshots"
 LOG_DIR = OUTPUT_DIR / "logs"
 LOG_BACKUP_DIR = LOG_DIR / "backups"
 ALLURE_TEMP = BASE_DIR / "temp"
-REPORT_DIR = BASE_DIR / "report"
+REPORT_DIR = BASE_DIR / "reports"
 CONFIG_DIR = BASE_DIR / "config"
 DATA_DIR = BASE_DIR / "data"
 
