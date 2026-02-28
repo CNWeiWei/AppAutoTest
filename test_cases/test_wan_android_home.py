@@ -13,12 +13,9 @@ import logging
 import os
 
 import allure
-from dotenv import load_dotenv
 
 from page_objects.wan_android_home import HomePage
 from page_objects.wan_android_project import ProjectPage
-
-load_dotenv()
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -52,11 +49,10 @@ class TestWanAndroidHome:
         with allure.step("断言"):
             assert os.getenv("USER_NAME") == 'admintest123456'
 
-
         # 页面跳转
         with allure.step("验证页面跳转"):
             project = home.go_to(ProjectPage)
             project.switch_to_project()
-            project.assert_text(*project.pro_table_title,expected_text='完整项目')
+            project.assert_text(*project.pro_table_title, expected_text='完整项目')
 
         project.delay(5)

@@ -14,6 +14,7 @@ import pytest
 from appium.webdriver.common.appiumby import AppiumBy
 from utils.finder import by_converter, register_custom_finder, converter
 
+
 class TestFinderConverter:
 
     def setup_method(self):
@@ -56,7 +57,7 @@ class TestFinderConverter:
         """测试自定义注册功能"""
         register_custom_finder("my_text", "-android uiautomator")
         assert by_converter("my_text") == "-android uiautomator"
-        
+
         # 测试注册后归一化依然生效
         assert by_converter("MY_TEXT") == "-android uiautomator"
 
@@ -64,9 +65,9 @@ class TestFinderConverter:
         """测试重置功能"""
         register_custom_finder("temp_key", "xpath")
         assert by_converter("temp_key") == "xpath"
-        
+
         converter.clear_custom_finders()
-        
+
         with pytest.raises(ValueError, match="Unsupported locator strategy"):
             by_converter("temp_key")
 
@@ -81,7 +82,8 @@ class TestFinderConverter:
             by_converter(123)  # type: ignore
 
         with pytest.raises(ValueError, match="Invalid selector type"):
-            by_converter(None) # type: ignore
+            by_converter(None)  # type: ignore
+
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

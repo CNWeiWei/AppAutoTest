@@ -16,11 +16,15 @@ from typing import Generator, Any
 
 import pytest
 import allure
+from dotenv import load_dotenv
 
 from core.run_appium import start_appium_service, stop_appium_service
 from core.driver import CoreDriver
 from core.settings import APPIUM_HOST, APPIUM_PORT
+from core.enums import AppPlatform
 from core.config_loader import get_caps
+
+load_dotenv()
 
 
 # 注册命令行参数
@@ -29,14 +33,15 @@ def pytest_addoption(parser: Any) -> None:
     注册自定义命令行参数
     :param parser: Pytest 参数解析器对象
     """
-    parser.addoption("--platform", action="store", default="Android", help="目标平台: Android or IOS")
+    parser.addoption("--platform", action="store", default="android1", help="目标平台: Android or IOS")
+    parser.addoption("--caps_name", action="store", default=None, help="配置文件中的设备/平台名称")
     parser.addoption("--udid", action="store", default=None, help="设备唯一标识")
     parser.addoption("--host", action="store", default=APPIUM_HOST, help="Appium Server Host")
     parser.addoption("--port", action="store", default=str(APPIUM_PORT), help="Appium Server Port")
 
 
 @pytest.fixture(scope="session")
-def app_server(request: pytest.FixtureRequest) -> Generator[Any, None, None]:
+def appium_server(request: pytest.FixtureRequest) -> Generator[Any, None, None]:
     """
     第一层：管理 Appium Server 进程。
     :param request: Pytest 请求对象
@@ -52,41 +57,44 @@ def app_server(request: pytest.FixtureRequest) -> Generator[Any, None, None]:
 
 
 @pytest.fixture(scope="session")
-def driver_session(request: pytest.FixtureRequest, app_server: Any) -> Generator[CoreDriver, None, None]:
+def driver_session(request: pytest.FixtureRequest, appium_server: Any) -> Generator[CoreDriver, None, None]:
     """
     第二层：全局单例 Driver 管理 (Session Scope)。
     负责创建和销毁 Driver，整个测试过程只启动一次 App。
     :param request: Pytest 请求对象
-    :param app_server: Appium 服务 fixture 依赖
+    :param appium_server: Appium 服务 fixture 依赖
     :return: CoreDriver 实例
     """
-    platform = request.config.getoption("--platform")
+    platform: AppPlatform = request.config.getoption("--platform")
+    # 配置名称(caps_name)（决定去 YAML 哪个节点拿数据，默认等于 platform）
+    caps_name = request.config.getoption("--caps_name") or platform
     ud_id = request.config.getoption("--udid")
     host = request.config.getoption("--host")
     port = int(request.config.getoption("--port"))
 
     # 1. 获取基础 Caps
-    caps = get_caps(platform)
+    caps = get_caps(caps_name)
 
     # 2. 动态注入参数
     if ud_id: caps["udid"] = ud_id
 
     # 将最终生效的 caps 存入 pytest 配置，方便报告读取
     request.config._final_caps = caps
+    request.config._caps_name = caps_name
 
     # 3. 初始化 Driver
-    app_helper = CoreDriver()
-    app_helper.server_config(host=host, port=port)
+    driver_helper = CoreDriver()
+    driver_helper.server_config(host=host, port=port)
 
     try:
-        app_helper.connect(platform=platform, caps=caps)
+        driver_helper.connect(platform=platform, caps=caps)
     except Exception as e:
         pytest.exit(f"无法初始化 Driver: {e}")
 
-    yield app_helper
+    yield driver_helper
 
     # 4. 清理
-    app_helper.quit()
+    driver_helper.quit()
 
 
 @pytest.fixture(scope="function")
@@ -165,6 +173,8 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
 
     report_dir = session.config.getoption("--alluredir")
     final_caps = getattr(session.config, "_final_caps", {})
+    caps_name = getattr(session.config, "_caps_name", '')
+
     if not report_dir:
         return
     report_path = Path(report_dir)
@@ -172,6 +182,7 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
     env_info = {
         "Platform": session.config.getoption("--platform"),
         "UDID": final_caps.get("udid") or session.config.getoption("--udid") or "Not Specified",
+        "CapsName": caps_name,
         "Host": session.config.getoption("--host"),
         "Python": "3.11+"
     }

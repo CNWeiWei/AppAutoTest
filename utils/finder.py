@@ -5,11 +5,12 @@
 @author: CNWei,ChenWei
 @Software: PyCharm
 @contact: t6g888@163.com
-@file: locator_utils
+@file: finder
 @date: 2026/1/20 15:40
 @desc: 
 """
 from typing import Literal, Final
+
 from appium.webdriver.common.appiumby import AppiumBy
 
 ByType = Literal[

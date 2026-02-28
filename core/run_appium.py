@@ -5,7 +5,7 @@
 @author: CNWei,ChenWei
 @Software: PyCharm
 @contact: t6g888@163.com
-@file: test
+@file: run_appium
 @date: 2026/1/12 10:21
 @desc: 
 """
@@ -19,10 +19,11 @@ import sys
 import http.client
 import socket
 import json
-from enum import Enum
+
 from typing import List
 
 from core.settings import BASE_DIR, APPIUM_HOST, APPIUM_PORT, MAX_RETRIES
+from core.enums import AppiumStatus, ServiceRole
 
 logger = logging.getLogger(__name__)
 
@@ -53,23 +54,6 @@ class AppiumTimeoutError(AppiumStartupError):
 class AppiumInternalError(AppiumStartupError):
     """探测接口返回了无法解析的数据或网络异常"""
     pass
-
-
-class AppiumStatus(Enum):
-    """Appium 服务状态枚举"""
-    READY = "服务已启动"  # 服务和驱动都加载完成 (HTTP 200 + ready: true)
-    INITIALIZING = "驱动正在加载"  # 服务已响应但驱动仍在加载 (HTTP 200 + ready: false)
-    CONFLICT = "端口被其他程序占用"  # 端口被其他非 Appium 程序占用
-    OFFLINE = "服务未启动"  # 服务未启动
-    ERROR = "内部错误"
-    UNKNOWN = "未知状态"
-
-
-class ServiceRole(Enum):
-    """服务角色枚举：定义服务的所有权和生命周期"""
-    MANAGED = "托管模式"  # 由本脚本启动，负责清理
-    EXTERNAL = "共享模式"  # 复用现有服务，不负责清理
-    NULL = "空模式"  # 无效或未初始化的服务
 
 
 def resolve_appium_command(host: str, port: int | str) -> List[str]:

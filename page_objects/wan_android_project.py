@@ -5,7 +5,7 @@
 @author: CNWei,ChenWei
 @Software: PyCharm
 @contact: t6g888@163.com
-@file: test_views
+@file: wan_android_project
 @date: 2026/1/30 17:37
 @desc: 
 """
@@ -16,13 +16,15 @@ from appium import webdriver
 
 from core.base_page import BasePage
 from utils.decorators import StepTracer
+
 logger = logging.getLogger(__name__)
 
 
 class ProjectPage(BasePage):
     # 定位参数
     project_title = ("-android uiautomator", 'new UiSelector().text("项目")')
-    pro_table_title = ("-android uiautomator",'new UiSelector().text("完整项目")')
+    pro_table_title = ("-android uiautomator", 'new UiSelector().text("完整项目")')
+
     def __init__(self, driver: webdriver.Remote):
         super().__init__(driver)
 

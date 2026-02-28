@@ -30,10 +30,10 @@ from selenium.webdriver.common.actions import interaction
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.actions.pointer_input import PointerInput
 
+from core.enums import AppPlatform
+from core.settings import IMPLICIT_WAIT_TIMEOUT, EXPLICIT_WAIT_TIMEOUT, APPIUM_HOST, APPIUM_PORT, SCREENSHOT_DIR
 from utils.finder import by_converter
 from utils.decorators import resolve_wait_method
-from core.modules import AppPlatform
-from core.settings import IMPLICIT_WAIT_TIMEOUT, EXPLICIT_WAIT_TIMEOUT, APPIUM_HOST, APPIUM_PORT, SCREENSHOT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -623,6 +623,7 @@ class CoreDriver:
         :return: self
         """
         return self.switch_to_context('NATIVE_APP')
+
     def full_screen_screenshot(self, name: str | None = None) -> str:
         """
         截取当前完整屏幕内容 (自愈逻辑、异常报错首选)

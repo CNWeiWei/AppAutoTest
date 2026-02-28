@@ -138,6 +138,7 @@ pytest --platform IOS --udid <your_iphone_udid>
 **可用的自定义命令行参数:**
 
 - `--platform`: 目标平台 (`Android` 或 `IOS`)。默认为 `Android`。
+- `--caps_name`: 设备/平台名称。
 - `--udid`: 目标设备的唯一设备标识符 (UDID)。
 - `--host`: Appium 服务器的主机地址。默认为 `127.0.0.1`。
 - `--port`: Appium 服务器的端口。默认为 `4723`。

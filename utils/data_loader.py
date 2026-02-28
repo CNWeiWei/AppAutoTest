@@ -11,10 +11,10 @@
 """
 import yaml
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 
-def load_yaml(file_path: Path | str) -> dict[str, Any] | List[Any]:
+def load_yaml(file_path: Path | str) -> dict[str, Any] | list[Any]:
     """
     加载 YAML 文件
     :param file_path: 文件路径

@@ -15,7 +15,6 @@ import time
 import inspect
 from functools import wraps
 from typing import Union, Callable
-
 from contextvars import ContextVar
 from contextlib import ContextDecorator
 
@@ -41,14 +40,15 @@ class StepTracer(ContextDecorator):
         ...
 
     也可作为装饰器的一部分（通过 step_trace 工厂函数）。
-
-    Attributes:
-        step_desc (str): 对当前步骤或操作的描述。
-        source (str): 日志记录器的名称。
-        func_info (str, optional): 关联的函数信息，用于日志输出。
     """
 
     def __init__(self, step_desc, source='wrapper', func_info=None):
+        """
+        初始化 StepTracer。
+        :param step_desc: 对当前步骤或操作的描述。
+        :param source: 日志记录器的名称。
+        :param func_info: 关联的函数信息，用于日志输出。
+        """
         self.step_desc = step_desc
         self.logger = logging.getLogger(source)
         self.func_info = func_info
@@ -167,6 +167,7 @@ def action_screenshot(func):
     Returns:
         Callable: 包装后的函数。
     """
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         # 1. 正常执行原方法
@@ -241,6 +242,7 @@ def step_trace(step_desc="", source='wrapper'):
     Returns:
         Callable: 一个可以装饰函数的装饰器。
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):

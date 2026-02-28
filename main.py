@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from core.settings import LOG_SOURCE, LOG_BACKUP_DIR, ALLURE_TEMP
+from core.enums import AppPlatform
 from utils.dirs_manager import ensure_dirs_ok
 from utils.report_handler import generate_allure_report
 
@@ -44,6 +45,7 @@ def _archive_logs():
     else:
         print("未找到原始日志文件，跳过备份。")
 
+
 # 日志清理
 def _clean_old_logs(backup_dir, keep_count=10):
     files = sorted(Path(backup_dir).glob("pytest_*.log"), key=lambda p: p.stat().st_mtime)
@@ -53,6 +55,7 @@ def _clean_old_logs(backup_dir, keep_count=10):
             file_to_remove.unlink(missing_ok=True)
         except OSError as e:
             print(f"清理旧日志失败 {file_to_remove}: {e}")
+
 
 def _clean_temp_dirs():
     """
@@ -64,6 +67,7 @@ def _clean_temp_dirs():
         shutil.rmtree(ALLURE_TEMP, ignore_errors=True)
     ALLURE_TEMP.mkdir(parents=True, exist_ok=True)
 
+
 def main():
     try:
         # 1. 创建目录
@@ -73,8 +77,16 @@ def main():
         _archive_logs()
 
         # 3. 执行 Pytest
-        # 注意：-x 表示遇到错误立即停止，如果是全量回归建议去掉 -x
-        pytest.main(["test_cases", "-x", "-v", f"--alluredir={ALLURE_TEMP}"])
+
+        args = [
+            "test_cases",
+            "-x",  # 注意：-x 表示遇到错误立即停止，如果是全量回归建议去掉 -x
+            "-v",
+            f"--alluredir={ALLURE_TEMP}",
+            f"--platform={AppPlatform.ANDROID.value}",
+            "--caps_name=wan_android"
+        ]
+        pytest.main(args)
 
         # 4. 生成报告
         generate_allure_report()

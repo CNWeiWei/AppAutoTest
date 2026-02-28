@@ -5,7 +5,7 @@
 @author: CNWei,ChenWei
 @Software: PyCharm
 @contact: t6g888@163.com
-@file: path_manager
+@file: dirs_manager
 @date: 2026/2/3 10:52
 @desc: 
 """
